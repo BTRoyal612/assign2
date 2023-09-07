@@ -1,4 +1,4 @@
-package aggregation;
+package main.aggregation;
 
 public class AggregationLogManager {
 }

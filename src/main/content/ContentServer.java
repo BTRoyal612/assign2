@@ -1,4 +1,4 @@
-package content;
+package main.content;
 
 public class ContentServer {
 }
