@@ -1,12 +1,10 @@
 package main.content;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.Socket;
 import org.json.JSONObject;
 import main.common.LamportClock;
 import main.common.JSONHandler;
+import main.content.network.NetworkHandler;
+import main.content.network.SocketNetworkHandler;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -15,8 +13,12 @@ import java.util.concurrent.TimeUnit;
 public class ContentServer {
     private LamportClock lamportClock = new LamportClock();
     private JSONObject weatherData;
-
     private ScheduledExecutorService heartbeatScheduler = Executors.newScheduledThreadPool(1);
+    private NetworkHandler networkHandler;
+
+    public ContentServer(NetworkHandler networkHandler) {
+        this.networkHandler = networkHandler;
+    }
 
     public static void main(String[] args) {
         if (args.length < 3) {
@@ -28,13 +30,25 @@ public class ContentServer {
         int portNumber = Integer.parseInt(args[1]);
         String filePath = args[2];
 
-        ContentServer server = new ContentServer();
+        // Create an instance of SocketNetworkHandler for actual use.
+        NetworkHandler networkHandler = new SocketNetworkHandler();
+        ContentServer server = new ContentServer(networkHandler);
         server.loadWeatherData(filePath);
-        server.uploadWeatherData(serverName, portNumber, server.weatherData);
+        server.uploadWeatherData(serverName, portNumber);
         server.sendHeartbeat(serverName, portNumber);
+
+        // Add shutdown hook to gracefully terminate resources
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            server.heartbeatScheduler.shutdown();
+            networkHandler.close();
+        }));
     }
 
-    private void loadWeatherData(String filePath) {
+    public JSONObject getWeatherData() {
+        return weatherData;
+    }
+
+    public void loadWeatherData(String filePath) {
         try {
             String fileContent = JSONHandler.readFile(filePath);
             weatherData = JSONHandler.convertTextToJSON(fileContent);
@@ -42,54 +56,44 @@ public class ContentServer {
             System.out.println("Error loading weather data: " + e.getMessage());
         }
     }
-    public void uploadWeatherData(String serverName, int portNumber, JSONObject jsonData) {
-        try (Socket clientSocket = new Socket(serverName, portNumber);
-             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))) {
 
+    public String uploadWeatherData(String serverName, int portNumber) {
+        try {
+            JSONObject jsonData = new JSONObject(weatherData.toString()); // make a copy of the weather data
             jsonData.put("LamportClock", lamportClock.send());
 
             String putRequest = "PUT /uploadData HTTP/1.1\r\n" +
                     "Content-Type: application/json\r\n" +
                     "Content-Length: " + jsonData.toString().length() + "\r\n" +
                     "\r\n" +
-                    jsonData.toString();
+                    jsonData;
 
-            out.println(putRequest);
+            String response = networkHandler.sendData(serverName, portNumber, putRequest);
 
-            // Check response from the server (simplified for brevity)
-            String response = in.readLine();
-            if (response != null && response.contains("200 OK")) {
+            if (response != null && (response.contains("200 OK") || response.contains("201 OK"))) {
                 System.out.println("Data uploaded successfully.");
             } else {
                 System.out.println("Error uploading data. Server response: " + response);
             }
-
+            return response;
         } catch (Exception e) {
             System.out.println("Error while connecting to the server: " + e.getMessage());
+            return null;
         }
     }
 
-    private void sendHeartbeat(String serverName, int portNumber) {
+    public void sendHeartbeat(String serverName, int portNumber) {
         heartbeatScheduler.scheduleAtFixedRate(() -> {
-            try (Socket clientSocket = new Socket(serverName, portNumber);
-                 PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))) {
-
+            try {
                 lamportClock.tick();
-
                 String heartbeatMessage = "HEARTBEAT " + lamportClock.getTime() + "\r\n";
+                String response = networkHandler.sendData(serverName, portNumber, heartbeatMessage);
 
-                out.println(heartbeatMessage);
-                String response = in.readLine();
-
-                // Check response from the server (simplified for brevity)
-                if (response != null && response.contains("200 OK")) {
+                if (response != null && (response.contains("200 OK") || response.contains("201 OK"))) {
                     System.out.println("Heartbeat acknowledged by server.");
                 } else {
                     System.out.println("Error sending heartbeat. Server response: " + response);
                 }
-
             } catch (Exception e) {
                 System.out.println("Error sending heartbeat: " + e.getMessage());
             }
