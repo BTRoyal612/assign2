@@ -3,8 +3,8 @@ package main.content;
 import org.json.JSONObject;
 import main.common.LamportClock;
 import main.common.JSONHandler;
-import main.content.network.NetworkHandler;
-import main.content.network.SocketNetworkHandler;
+import main.network.NetworkHandler;
+import main.network.SocketNetworkHandler;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
