@@ -1,7 +1,7 @@
 package test.content;
 
 import main.content.ContentServer;
-import test.content.network.StubNetworkHandler;
+import test.network.StubNetworkHandler;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -45,7 +45,7 @@ public class ContentServerTest {
     @Test
     public void testSendHeartbeat() {
         // Ensure the stub will respond correctly to the heartbeat
-        stubNetworkHandler.setSimulatedResponse("200 OK");
+        stubNetworkHandler.setSimulatedSendResponse("200 OK");
 
         // Invoke sendHeartbeat
         contentServer.sendHeartbeat("testServer", 8080);
