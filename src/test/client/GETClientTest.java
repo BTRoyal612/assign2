@@ -8,6 +8,8 @@ import test.network.StubNetworkHandler;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -32,7 +34,7 @@ public class GETClientTest {
 
     @Test
     public void testInterpretResponse_InvalidResponseFormat() {
-        JSONObject invalidResponse = new JSONObject();
+        Map<String, Object> invalidResponse = new HashMap<>();
 
         client.interpretResponse(invalidResponse);
         String capturedOutput = outContent.toString().replace(System.lineSeparator(), "");
@@ -42,7 +44,7 @@ public class GETClientTest {
 
     @Test
     public void testInterpretResponse_NotAvailable() {
-        JSONObject response = new JSONObject();
+        Map<String, Object> response = new HashMap<>();
         response.put("status", "not available");
 
         client.interpretResponse(response);
@@ -53,7 +55,7 @@ public class GETClientTest {
 
     @Test
     public void testInterpretResponse_Available() {
-        JSONObject response = new JSONObject();
+        Map<String, Object> response = new HashMap<>();
         response.put("status", "available");
         // Assuming this is how the method convertJSONToText would convert it:
         response.put("weather", "sunny");
@@ -66,7 +68,7 @@ public class GETClientTest {
 
     @Test
     public void testInterpretResponse_UnknownStatus() {
-        JSONObject response = new JSONObject();
+        Map<String, Object> response = new HashMap<>();
         response.put("status", "unknownStatus");
 
         client.interpretResponse(response);
@@ -81,13 +83,13 @@ public class GETClientTest {
         String expectedResponse = "{ \"status\": \"available\", \"data\": \"Sample weather data.\" }";
         stubNetworkHandler.setSimulatedReceiveResponse(expectedResponse);
 
-        JSONObject response = client.getData("testServer", 8080, "testStation");
+        Map<String, Object> response = client.getData("testServer", 8080, "testStation");
 
         assertNotNull(response);
-        assertTrue(response.has("status"));
-        assertEquals("available", response.getString("status"));
-        assertTrue(response.has("data"));
-        assertEquals("Sample weather data.", response.getString("data"));
+        assertTrue(response.containsKey("status"));
+        assertEquals("available", response.get("status"));
+        assertTrue(response.containsKey("data"));
+        assertEquals("Sample weather data.", response.get("data"));
     }
 
     @Test
@@ -95,19 +97,19 @@ public class GETClientTest {
         String expectedResponse = "{ \"status\": \"not available\" }";
         stubNetworkHandler.setSimulatedReceiveResponse(expectedResponse);
 
-        JSONObject response = client.getData("testServer", 8080, "testStation");
+        Map<String, Object> response = client.getData("testServer", 8080, "testStation");
 
         assertNotNull(response);
-        assertTrue(response.has("status"));
-        assertEquals("not available", response.getString("status"));
-        assertFalse(response.has("data"));
+        assertTrue(response.containsKey("status"));
+        assertEquals("not available", response.get("status"));
+        assertFalse(response.containsKey("data"));
     }
 
     @Test
     public void testGetData_NullResponse() {
         stubNetworkHandler.setSimulatedReceiveResponse(null);  // Simulate no response
 
-        JSONObject response = client.getData("testServer", 8080, "testStation");
+        Map<String, Object> response = client.getData("testServer", 8080, "testStation");
 
         assertNull(response);
     }
@@ -117,7 +119,7 @@ public class GETClientTest {
         String expectedResponse = "This is not a valid JSON.";
         stubNetworkHandler.setSimulatedReceiveResponse(expectedResponse);
 
-        JSONObject response = client.getData("testServer", 8080, "testStation");
+        Map<String, Object> response = client.getData("testServer", 8080, "testStation");
 
         assertNull(response);
     }

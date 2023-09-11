@@ -50,6 +50,7 @@ public class JSONHandler {
             dataMap.put(key, value);
         }
 
+        System.out.println(dataMap);
         return dataMap;
     }
 

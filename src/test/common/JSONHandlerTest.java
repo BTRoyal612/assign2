@@ -7,10 +7,12 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class JSONHandlerTest {
-
     @Test
     void testTextToJsonConversion() {
         try {
@@ -21,13 +23,13 @@ class JSONHandlerTest {
                             "air_temp: 13.3\n" +
                             "cloud: Partly cloudy";
 
-            JSONObject result = JSONHandler.convertTextToJSON(content);
+            Map<String, Object> result = JSONHandler.convertTextToJSON(content);
 
             // Assertions for the given fields.
-            assertEquals("IDS60901", result.getString("id"));
-            assertEquals("Adelaide (West Terrace / ngayirdapira)", result.getString("name"));
-            assertEquals(13.3, result.getDouble("air_temp"));
-            assertEquals("Partly cloudy", result.getString("cloud"));
+            assertEquals("IDS60901", result.get("id"));
+            assertEquals("Adelaide (West Terrace / ngayirdapira)", result.get("name"));
+            assertEquals("13.3", result.get("air_temp"));
+            assertEquals("Partly cloudy", result.get("cloud"));
 
         } catch (Exception e) {
             fail("Exception thrown during test: " + e.getMessage());
@@ -37,7 +39,7 @@ class JSONHandlerTest {
     @Test
     void testJSONToTextConversion() {
         try {
-            JSONObject sampleJSON = new JSONObject();
+            Map<String, Object> sampleJSON = new HashMap<>();
             sampleJSON.put("id", "IDS60901");
             sampleJSON.put("air_temp", 13.3);
             sampleJSON.put("cloud", "Partly cloudy");
