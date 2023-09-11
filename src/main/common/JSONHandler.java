@@ -1,10 +1,8 @@
 package main.common;
 
-import org.json.JSONObject;
-
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
+import java.util.Iterator;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -31,7 +29,7 @@ public class JSONHandler {
         return content.toString();
     }
 
-    public static JSONObject convertTextToJSON(String inputText) throws Exception {
+    public static Map<String, Object> convertTextToJSON(String inputText) throws Exception {
         if (inputText == null) {
             throw new Exception("Input text is null.");
         }
@@ -52,27 +50,28 @@ public class JSONHandler {
             dataMap.put(key, value);
         }
 
-        return new JSONObject(dataMap);
+        return dataMap;
     }
 
-    public static String convertJSONToText(JSONObject jsonObject) throws Exception {
-        if (jsonObject == null) {
-            throw new Exception("Error: jsonObject is null.");
+    public static String convertJSONToText(Map<String, Object> dataMap) throws Exception {
+        if (dataMap == null) {
+            throw new Exception("Error: dataMap is null.");
         }
 
         StringBuilder stringBuilder = new StringBuilder();
 
-        Iterator<String> keys = jsonObject.keys();
-        while (keys.hasNext()) {
-            String key = keys.next();
-            Object value = jsonObject.get(key);  // Get value as Object
+        Iterator<Map.Entry<String, Object>> iterator = dataMap.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, Object> entry = iterator.next();
+            String key = entry.getKey();
+            Object value = entry.getValue();
 
             // Convert the value object to string appropriately
             String valueStr;
             if (value instanceof Double || value instanceof Integer) {
                 valueStr = String.valueOf(value);  // Convert numeric values directly
             } else {
-                valueStr = jsonObject.getString(key);  // For other types, use getString
+                valueStr = (String) value;  // For other types, use toString
             }
 
             stringBuilder.append(key).append(": ").append(valueStr).append("\n");

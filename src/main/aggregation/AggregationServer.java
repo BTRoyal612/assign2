@@ -4,15 +4,15 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import org.json.JSONObject;
 
 public class AggregationServer {
     private static final int DEFAULT_PORT = 4567;
     private static final int TIMEOUT = 30000; // 30 seconds
 
-    // Holds weather data. Key is content server ID, Value is the weather data in JSON format
+    // Holds weather data. Key is content server ID, Value is the weather data in string format
     private ConcurrentHashMap<String, String> weatherDataMap = new ConcurrentHashMap<>();
     private ConcurrentHashMap<String, Long> lastUpdateTimeMap = new ConcurrentHashMap<>();
+
     public static void main(String[] args) {
         int port = DEFAULT_PORT;
 
@@ -57,17 +57,16 @@ public class AggregationServer {
                 case "GET":
                     // Return aggregated weather data
                     out.println("HTTP/1.1 200 OK");
-                    JSONObject aggregatedData = new JSONObject(weatherDataMap);
-                    out.println(aggregatedData.toString());
+                    out.println(weatherDataMap.toString());
                     break;
 
                 case "PUT":
                     // Extract content server ID and weather data
                     String contentServerID = UUID.randomUUID().toString(); // Some mechanism to get unique ID
-                    String data = in.readLine(); // Assuming one line contains the JSON data
+                    String data = in.readLine(); // Assuming one line contains the JSON-like data
                     if (data == null || data.isEmpty()) {
                         out.println("HTTP/1.1 204 No Content");
-                    } else if (!isValidJSON(data)) {
+                    } else if (!isValidJSONLike(data)) {
                         out.println("HTTP/1.1 500 Internal Server Error");
                     } else {
                         weatherDataMap.put(contentServerID, data);
@@ -89,13 +88,9 @@ public class AggregationServer {
         cleanOldData();
     }
 
-    private boolean isValidJSON(String data) {
-        try {
-            new JSONObject(data);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+    private boolean isValidJSONLike(String data) {
+        // Your validation logic here, for example:
+        return data.startsWith("{") && data.endsWith("}");
     }
 
     private void cleanOldData() {
@@ -108,4 +103,3 @@ public class AggregationServer {
         }
     }
 }
-
