@@ -82,7 +82,7 @@ public class GETClient {
                 return null;
             }
 
-            Map<String, Object> dataMap = JSONHandler.convertTextToJSON(responseStr);
+            Map<String, Object> dataMap = JSONHandler.parseJSON(responseStr);
 
             if (dataMap.containsKey("LamportClock")) {
                 int receivedLamportClock = Integer.parseInt(dataMap.get("LamportClock").toString());

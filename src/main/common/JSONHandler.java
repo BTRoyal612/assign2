@@ -80,4 +80,44 @@ public class JSONHandler {
 
         return stringBuilder.toString();
     }
+
+    public static String printJSON(Map<String, Object> data) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+
+        boolean first = true;
+        for (Map.Entry<String, Object> entry : data.entrySet()) {
+            if (!first) {
+                sb.append(",");
+            }
+            sb.append("\"").append(entry.getKey()).append("\":");
+            sb.append("\"").append(entry.getValue()).append("\"");
+            first = false;
+        }
+
+        sb.append("}");
+
+        return sb.toString();
+    }
+
+    public static Map<String, Object> parseJSON(String jsonData) {
+        Map<String, Object> resultMap = new HashMap<>();
+
+        // Removing curly braces
+        String trimmedData = jsonData.trim().substring(1, jsonData.length() - 1).trim();
+
+        // Splitting by comma and newline, considering the comma or newline is not inside quotes
+        String[] keyValuePairs = trimmedData.split(",|\\n(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
+
+        for (String pair : keyValuePairs) {
+            String[] parts = pair.split(":");
+            if (parts.length >= 2) {
+                String key = parts[0].trim().replace("\"", "");
+                String value = parts[1].trim().replace("\"", "");
+                resultMap.put(key, value);
+            }
+        }
+
+        return resultMap;
+    }
 }

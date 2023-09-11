@@ -1,13 +1,10 @@
 package test.common;
 
 import main.common.JSONHandler;
-import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -52,5 +49,41 @@ class JSONHandlerTest {
         } catch (Exception e) {
             fail("Exception thrown during test: " + e.getMessage());
         }
+    }
+
+    @Test
+    void testPrintJSON() {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("id", "IDS60901");
+        data.put("air_temp", "13.3");
+        data.put("cloud", "Partly cloudy");
+        data.put("local_date_time_full", "20230715160000");
+
+        String result = JSONHandler.printJSON(data);
+        String expected = "{\"id\":\"IDS60901\",\"air_temp\":\"13.3\",\"cloud\":\"Partly cloudy\",\"local_date_time_full\":\"20230715160000\"}";
+
+        assertEquals(expected, result);
+    }
+
+    @Test
+    void testParseJSON() {
+        String jsonData = "{\"id\":\"IDS60901\",\"air_temp\":\"13.3\",\"cloud\":\"Partly cloudy\",\"local_date_time_full\":\"20230715160000\"}";
+        Map<String, Object> result = JSONHandler.parseJSON(jsonData);
+
+        assertEquals("IDS60901", result.get("id"));
+        assertEquals("13.3", result.get("air_temp"));
+        assertEquals("Partly cloudy", result.get("cloud"));
+        assertEquals("20230715160000", result.get("local_date_time_full"));
+    }
+
+    @Test
+    void testParseJSONWithNewLines() {
+        String jsonData = "{\n\"id\":\"IDS60901\",\n\"air_temp\":\"13.3\",\n\"cloud\":\"Partly cloudy\",\n\"local_date_time_full\":\"20230715160000\"\n}";
+        Map<String, Object> result = JSONHandler.parseJSON(jsonData);
+
+        assertEquals("IDS60901", result.get("id"));
+        assertEquals("13.3", result.get("air_temp"));
+        assertEquals("Partly cloudy", result.get("cloud"));
+        assertEquals("20230715160000", result.get("local_date_time_full"));
     }
 }

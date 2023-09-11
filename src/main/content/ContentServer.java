@@ -58,13 +58,15 @@ public class ContentServer {
 
     public String uploadWeatherData(String serverName, int portNumber) {
         try {
-            String jsonData = weatherData + ", \"LamportClock\":" + lamportClock.send() + "}";  // Append LamportClock value
+            Map<String, Object> jsonData = weatherData;
+            jsonData.put("LamportClock", lamportClock.send());  // Append LamportClock value
+            String jsonDataString = JSONHandler.printJSON(jsonData);
 
             String putRequest = "PUT /uploadData HTTP/1.1\r\n" +
                     "Content-Type: application/json\r\n" +
-                    "Content-Length: " + jsonData.length() + "\r\n" +
+                    "Content-Length: " + jsonDataString.length() + "\r\n" +
                     "\r\n" +
-                    jsonData;
+                    jsonDataString;
 
             String response = networkHandler.sendData(serverName, portNumber, putRequest);
 
