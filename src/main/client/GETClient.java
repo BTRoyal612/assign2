@@ -96,4 +96,25 @@ public class GETClient {
         }
         return null;
     }
+    public static void printJSON(Map<String, Object> map) {
+        StringBuilder jsonBuilder = new StringBuilder("{");
+
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            jsonBuilder.append("\"")
+                    .append(entry.getKey())
+                    .append("\": \"")
+                    .append(entry.getValue())
+                    .append("\", ");
+        }
+
+        // Remove the trailing comma and space
+        if (jsonBuilder.length() > 1) {
+            jsonBuilder.setLength(jsonBuilder.length() - 2);
+        }
+
+        jsonBuilder.append("}");
+        
+        System.out.println(jsonBuilder.toString());
+    }
+
 }
