@@ -5,13 +5,15 @@ import main.common.JSONHandler;
 import main.network.NetworkHandler;
 import main.network.SocketNetworkHandler;
 
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class ContentServer {
     private LamportClock lamportClock = new LamportClock();
-    private String weatherData;  // Store weather data as a JSON-like string
+    private Map<String, Object> weatherData;  // Store weather data as a JSON-like string
     private ScheduledExecutorService heartbeatScheduler = Executors.newScheduledThreadPool(1);
     private NetworkHandler networkHandler;
 
@@ -41,13 +43,14 @@ public class ContentServer {
         }));
     }
 
-    public String getWeatherData() {
+    public Map<String, Object> getWeatherData() {
         return weatherData;
     }
 
     public void loadWeatherData(String filePath) {
         try {
-            weatherData = JSONHandler.readFile(filePath);  // Assuming JSONHandler.readFile() returns JSON-like string
+            String weatherDataTexT = JSONHandler.readFile(filePath);  // Assuming JSONHandler.readFile() returns JSON-like string
+            weatherData = JSONHandler.convertTextToJSON(weatherDataTexT);
         } catch (Exception e) {
             System.out.println("Error loading weather data: " + e.getMessage());
         }
