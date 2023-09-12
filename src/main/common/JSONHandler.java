@@ -2,7 +2,6 @@ package main.common;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Iterator;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -61,9 +60,7 @@ public class JSONHandler {
 
         StringBuilder stringBuilder = new StringBuilder();
 
-        Iterator<Map.Entry<String, Object>> iterator = dataMap.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<String, Object> entry = iterator.next();
+        for (Map.Entry<String, Object> entry : dataMap.entrySet()) {
             String key = entry.getKey();
             Object value = entry.getValue();
 

@@ -15,10 +15,11 @@ class JSONHandlerTest {
         try {
             // Sample input text string.
             String content =
-                    "id: IDS60901\n" +
-                            "name: Adelaide (West Terrace / ngayirdapira)\n" +
-                            "air_temp: 13.3\n" +
-                            "cloud: Partly cloudy";
+                    """
+                    id: IDS60901
+                    name: Adelaide (West Terrace / ngayirdapira)
+                    air_temp: 13.3
+                    cloud: Partly cloudy""";
 
             Map<String, Object> result = JSONHandler.convertTextToJSON(content);
 
