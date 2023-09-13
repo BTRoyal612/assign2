@@ -10,6 +10,21 @@ public class StubNetworkHandler implements NetworkHandler {
     private String simulatedReceiveResponse = "200 OK"; // Default simulated response for receiveData
 
     @Override
+    public void startServer(int portNumber) {
+
+    }
+
+    @Override
+    public String waitForClientData() {
+        return null;
+    }
+
+    @Override
+    public void sendResponseToClient(String response) {
+
+    }
+
+    @Override
     public String sendData(String serverName, int portNumber, String data) {
         this.lastSentData = data;
         sentDataCount++;

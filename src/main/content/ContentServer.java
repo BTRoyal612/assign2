@@ -1,18 +1,18 @@
 package main.content;
 
+import org.json.JSONObject;
 import main.common.LamportClock;
 import main.common.JSONHandler;
 import main.network.NetworkHandler;
 import main.network.SocketNetworkHandler;
 
-import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class ContentServer {
     private LamportClock lamportClock = new LamportClock();
-    private Map<String, Object> weatherData;  // Store weather data as a JSON-like string
+    private JSONObject weatherData;
     private ScheduledExecutorService heartbeatScheduler = Executors.newScheduledThreadPool(1);
     private NetworkHandler networkHandler;
 
@@ -30,26 +30,28 @@ public class ContentServer {
         int portNumber = Integer.parseInt(args[1]);
         String filePath = args[2];
 
+        // Create an instance of SocketNetworkHandler for actual use.
         NetworkHandler networkHandler = new SocketNetworkHandler();
         ContentServer server = new ContentServer(networkHandler);
         server.loadWeatherData(filePath);
         server.uploadWeatherData(serverName, portNumber);
         server.sendHeartbeat(serverName, portNumber);
 
+        // Add shutdown hook to gracefully terminate resources
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             server.heartbeatScheduler.shutdown();
             networkHandler.close();
         }));
     }
 
-    public Map<String, Object> getWeatherData() {
+    public JSONObject getWeatherData() {
         return weatherData;
     }
 
     public void loadWeatherData(String filePath) {
         try {
-            String weatherDataTexT = JSONHandler.readFile(filePath);  // Assuming JSONHandler.readFile() returns JSON-like string
-            weatherData = JSONHandler.convertTextToJSON(weatherDataTexT);
+            String fileContent = JSONHandler.readFile(filePath);
+            weatherData = JSONHandler.convertTextToJSON(fileContent);
         } catch (Exception e) {
             System.out.println("Error loading weather data: " + e.getMessage());
         }
@@ -57,15 +59,14 @@ public class ContentServer {
 
     public String uploadWeatherData(String serverName, int portNumber) {
         try {
-            Map<String, Object> jsonData = weatherData;
-            jsonData.put("LamportClock", lamportClock.send());  // Append LamportClock value
-            String jsonDataString = JSONHandler.printJSON(jsonData);
+            JSONObject jsonData = new JSONObject(weatherData.toString()); // make a copy of the weather data
+            jsonData.put("LamportClock", lamportClock.send());
 
             String putRequest = "PUT /uploadData HTTP/1.1\r\n" +
                     "Content-Type: application/json\r\n" +
-                    "Content-Length: " + jsonDataString.length() + "\r\n" +
+                    "Content-Length: " + jsonData.toString().length() + "\r\n" +
                     "\r\n" +
-                    jsonDataString;
+                    jsonData;
 
             String response = networkHandler.sendData(serverName, portNumber, putRequest);
 
