@@ -26,47 +26,45 @@ public class ContentServerTest {
     }
 
     @Test
-    public void testUploadWeatherData() {
+    public void testStartUploadWeatherData() {
         // Assuming weather data is loaded first
         contentServer.loadWeatherData("src/test/content/input_test.txt");
 
-        String response = contentServer.uploadWeatherData("testServer", 8080);
+        contentServer.uploadWeatherData("testServer", 8080);
+
+        // Give it a little time for the initial data upload
+        try {
+            Thread.sleep(1000); // Wait for 1 second
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
         String expectedData = """
                 PUT /uploadData HTTP/1.1\r
+                Host: testServer\r
                 Content-Type: application/json\r
                 Content-Length: 116\r
                 \r
                 {"air_temp":"13.3","cloud":"Partly cloudy","local_date_time_full":"20230715160000","id":"IDS60901","LamportClock":1}""";
 
         assertEquals(expectedData, stubNetworkHandler.getLastSentData(), "Should send correct PUT request");
-        assertEquals("200 OK", response, "Should receive a 200 OK response from stub");
     }
 
     @Test
-    public void testSendHeartbeat() {
-        // Ensure the stub will respond correctly to the heartbeat
-        stubNetworkHandler.setSimulatedSendResponse("200 OK");
+    public void testRecurrentUploadWeatherData() {
+        // Load the weather data
+        contentServer.loadWeatherData("src/test/content/input_test.txt");
+        contentServer.uploadWeatherData("testServer", 8080);
 
-        // Invoke sendHeartbeat
-        contentServer.sendHeartbeat("testServer", 8080);
-
-        // Give it a little time to send the initial heartbeat
+        // Wait for initial upload
         try {
-            Thread.sleep(100); // Wait for 20 seconds
+            Thread.sleep(65000); // Wait for 1 second
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
 
-        // Verify initial heartbeat
-        assertTrue(stubNetworkHandler.getLastSentData().startsWith("HEARTBEAT"), "Should send correct initial heartbeat message");
-
-        // Let's test two more intervals to see if it sends heartbeats recurrently
-        try {
-            Thread.sleep(16000); // Wait for 20 seconds
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        // Verify that heartbeat continues
-        assertTrue(stubNetworkHandler.getSentDataCount() > 1, "Should have sent more than one heartbeat by now");
+        // Verify that data is uploaded recurrently
+        assertEquals(3, stubNetworkHandler.getSentDataCount(), "Should have sent more data by now");
     }
+
 }
