@@ -34,9 +34,9 @@ public class ContentServerTest {
         String expectedData = """
                 PUT /uploadData HTTP/1.1\r
                 Content-Type: application/json\r
-                Content-Length: 118\r
+                Content-Length: 116\r
                 \r
-                {"air_temp":"13.3","cloud":"Partly cloudy","local_date_time_full":"20230715160000","id":"IDS60901","LamportClock":"1"}""";
+                {"air_temp":"13.3","cloud":"Partly cloudy","local_date_time_full":"20230715160000","id":"IDS60901","LamportClock":1}""";
 
         assertEquals(expectedData, stubNetworkHandler.getLastSentData(), "Should send correct PUT request");
         assertEquals("200 OK", response, "Should receive a 200 OK response from stub");

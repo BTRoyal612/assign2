@@ -1,6 +1,9 @@
 package main.common;
 
+import org.json.JSONObject;
+
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 import java.io.BufferedReader;
@@ -28,7 +31,7 @@ public class JSONHandler {
         return content.toString();
     }
 
-    public static Map<String, Object> convertTextToJSON(String inputText) throws Exception {
+    public static JSONObject convertTextToJSON(String inputText) throws Exception {
         if (inputText == null) {
             throw new Exception("Input text is null.");
         }
@@ -49,72 +52,32 @@ public class JSONHandler {
             dataMap.put(key, value);
         }
 
-        System.out.println(dataMap);
-        return dataMap;
+        return new JSONObject(dataMap);
     }
 
-    public static String convertJSONToText(Map<String, Object> dataMap) throws Exception {
-        if (dataMap == null) {
-            throw new Exception("Error: dataMap is null.");
+    public static String convertJSONToText(JSONObject jsonObject) throws Exception {
+        if (jsonObject == null) {
+            throw new Exception("Error: jsonObject is null.");
         }
 
         StringBuilder stringBuilder = new StringBuilder();
 
-        for (Map.Entry<String, Object> entry : dataMap.entrySet()) {
-            String key = entry.getKey();
-            Object value = entry.getValue();
+        Iterator<String> keys = jsonObject.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            Object value = jsonObject.get(key);  // Get value as Object
 
             // Convert the value object to string appropriately
             String valueStr;
             if (value instanceof Double || value instanceof Integer) {
                 valueStr = String.valueOf(value);  // Convert numeric values directly
             } else {
-                valueStr = (String) value;  // For other types, use toString
+                valueStr = jsonObject.getString(key);  // For other types, use getString
             }
 
             stringBuilder.append(key).append(": ").append(valueStr).append("\n");
         }
 
         return stringBuilder.toString();
-    }
-
-    public static String printJSON(Map<String, Object> data) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{");
-
-        boolean first = true;
-        for (Map.Entry<String, Object> entry : data.entrySet()) {
-            if (!first) {
-                sb.append(",");
-            }
-            sb.append("\"").append(entry.getKey()).append("\":");
-            sb.append("\"").append(entry.getValue()).append("\"");
-            first = false;
-        }
-
-        sb.append("}");
-
-        return sb.toString();
-    }
-
-    public static Map<String, Object> parseJSON(String jsonData) {
-        Map<String, Object> resultMap = new HashMap<>();
-
-        // Removing curly braces
-        String trimmedData = jsonData.trim().substring(1, jsonData.length() - 1).trim();
-
-        // Splitting by comma and newline, considering the comma or newline is not inside quotes
-        String[] keyValuePairs = trimmedData.split(",|\\n(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
-
-        for (String pair : keyValuePairs) {
-            String[] parts = pair.split(":");
-            if (parts.length >= 2) {
-                String key = parts[0].trim().replace("\"", "");
-                String value = parts[1].trim().replace("\"", "");
-                resultMap.put(key, value);
-            }
-        }
-
-        return resultMap;
     }
 }

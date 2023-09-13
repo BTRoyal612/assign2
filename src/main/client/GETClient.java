@@ -2,10 +2,11 @@ package main.client;
 
 import main.network.NetworkHandler;
 import main.network.SocketNetworkHandler;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.json.JSONTokener;
 import main.common.LamportClock;  // Importing the LamportClock class
-import java.util.Map;
 import main.common.JSONHandler;
-
 
 public class GETClient {
     private final NetworkHandler networkHandler;
@@ -30,24 +31,24 @@ public class GETClient {
 
         NetworkHandler networkHandler = new SocketNetworkHandler();
         GETClient client = new GETClient(networkHandler);
-        Map<String, Object> response = client.getData(serverName, portNumber, stationID);
+        JSONObject response = client.getData(serverName, portNumber, stationID);
 
         // Interpret and print the response
         client.interpretResponse(response);
     }
 
-    public void interpretResponse(Map<String, Object> response) {
+    public void interpretResponse(JSONObject response) {
         if (response == null) {
             System.out.println("Error: No response from server.");
             return;
         }
 
-        if (!response.containsKey("status")) {
+        if (!response.has("status")) {
             System.out.println("Error: Invalid response format.");
             return;
         }
 
-        String status = (String) response.get("status");
+        String status = response.getString("status");
 
         if ("not available".equals(status)) {
             System.out.println("No weather data available.");
@@ -66,7 +67,7 @@ public class GETClient {
         }
     }
 
-    public Map<String, Object> getData(String serverName, int portNumber, String stationID) {
+    public JSONObject getData(String serverName, int portNumber, String stationID) {
         int currentTime = lamportClock.send();
 
         String getRequest = "GET /weather.json HTTP/1.1\r\n" +
@@ -82,14 +83,17 @@ public class GETClient {
                 return null;
             }
 
-            Map<String, Object> dataMap = JSONHandler.parseJSON(responseStr);
+            JSONObject jsonObject = new JSONObject(new JSONTokener(responseStr));
 
-            if (dataMap.containsKey("LamportClock")) {
-                int receivedLamportClock = Integer.parseInt(dataMap.get("LamportClock").toString());
+            if (jsonObject.has("LamportClock")) {
+                int receivedLamportClock = jsonObject.getInt("LamportClock");
                 lamportClock.receive(receivedLamportClock);
             }
 
-            return dataMap;
+            return jsonObject;
+        } catch (JSONException e) {
+            System.out.println("Error parsing the server's JSON response: " + e.getMessage());
+            e.printStackTrace();
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());
             e.printStackTrace();

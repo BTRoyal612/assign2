@@ -4,13 +4,42 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.ServerSocket;
 import java.net.Socket;
 
 public class SocketNetworkHandler implements NetworkHandler {
-
-    private Socket socket;
+    private ServerSocket serverSocket;
+    private Socket clientSocket;
     private PrintWriter out;
     private BufferedReader in;
+
+    @Override
+    public void startServer(int portNumber) {
+        try {
+            serverSocket = new ServerSocket(portNumber);
+            clientSocket = serverSocket.accept(); // this will wait until a client connects
+
+            out = new PrintWriter(clientSocket.getOutputStream(), true);
+            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public String waitForClientData() {
+        try {
+            return in.readLine(); // Reads a line of text sent by the client.
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    @Override
+    public void sendResponseToClient(String response) {
+        out.println(response); // Sends a line of text to the client.
+    }
 
     @Override
     public String sendData(String serverName, int portNumber, String data) {
@@ -57,20 +86,21 @@ public class SocketNetworkHandler implements NetworkHandler {
     }
 
     private void initializeSocket(String serverName, int portNumber) throws IOException {
-        if (socket == null || socket.isClosed()) {
-            socket = new Socket(serverName, portNumber);
-            out = new PrintWriter(socket.getOutputStream(), true);
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        if (clientSocket == null || clientSocket.isClosed()) {
+            clientSocket = new Socket(serverName, portNumber);
+            out = new PrintWriter(clientSocket.getOutputStream(), true);
+            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
         }
     }
 
     @Override
     public void close() {
         try {
-            if (in != null) in.close();
-            if (out != null) out.close();
-            if (socket != null && !socket.isClosed()) socket.close();
-        } catch (IOException e) {
+            in.close();
+            out.close();
+            clientSocket.close();
+            serverSocket.close();
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
