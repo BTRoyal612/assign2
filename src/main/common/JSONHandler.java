@@ -80,4 +80,25 @@ public class JSONHandler {
 
         return stringBuilder.toString();
     }
+
+    public static String extractJSONContent(String data) {
+        int startIndex = data.indexOf("{");
+        int endIndex = data.indexOf("}", startIndex);
+
+        if (startIndex != -1 && endIndex != -1 && startIndex < endIndex) {
+            return data.substring(startIndex, endIndex + 1);
+        } else {
+            // No valid JSON content found
+            return null;
+        }
+    }
+
+    public static JSONObject parseJSONObject(String jsonData) {
+        if (jsonData != null && !jsonData.isEmpty()) {
+            return new JSONObject(jsonData);
+        } else {
+            // Invalid JSON data provided
+            return null;
+        }
+    }
 }

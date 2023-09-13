@@ -49,4 +49,46 @@ class JSONHandlerTest {
             fail("Exception thrown during test: " + e.getMessage());
         }
     }
+
+    @Test
+    public void testExtractJSONContent() {
+        // Test with valid input
+        String input = "Some random data before the JSON content. {\"key\":\"value\"} Some data after.";
+        String expectedOutput = "{\"key\":\"value\"}";
+        assertEquals(expectedOutput, JSONHandler.extractJSONContent(input));
+
+        // Test with multiple JSON blocks (should only get the first one)
+        input = "Random data {\"key1\":\"value1\"} more random data {\"key2\":\"value2\"} ending data.";
+        expectedOutput = "{\"key1\":\"value1\"}";
+        assertEquals(expectedOutput, JSONHandler.extractJSONContent(input));
+
+        // Test with no JSON blocks
+        input = "No JSON content here";
+        assertNull(JSONHandler.extractJSONContent(input));
+    }
+
+    @Test
+    public void testParseJSONObject() {
+        // Test with valid JSON string
+        String jsonString = "{\"key\":\"value\"}";
+        JSONObject jsonObject = JSONHandler.parseJSONObject(jsonString);
+        assertTrue(jsonObject.has("key"));
+        assertEquals("value", jsonObject.getString("key"));
+
+        // Test with empty string
+        jsonString = "";
+        assertNull(JSONHandler.parseJSONObject(jsonString));
+
+        // Test with null string
+        jsonString = null;
+        assertNull(JSONHandler.parseJSONObject(jsonString));
+
+        // Test with invalid JSON string
+        jsonString = "{key:\"value\"}";  // missing double quotes around key
+        try {
+            jsonObject = JSONHandler.parseJSONObject(jsonString);
+        } catch (Exception e) {
+            assertTrue(e instanceof org.json.JSONException);
+        }
+    }
 }
