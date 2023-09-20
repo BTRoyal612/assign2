@@ -17,19 +17,16 @@ public class SocketNetworkHandler implements NetworkHandler {
     public void startServer(int portNumber) {
         try {
             serverSocket = new ServerSocket(portNumber);
-            clientSocket = serverSocket.accept(); // this will wait until a client connects
-
-            out = new PrintWriter(clientSocket.getOutputStream(), true);
-            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    // New method to accept a client connection
     @Override
-    public String waitForClientData() {
+    public Socket acceptConnection() {
         try {
-            return in.readLine(); // Reads a line of text sent by the client.
+            return serverSocket.accept();
         } catch (Exception e) {
             e.printStackTrace();
             return null;
@@ -37,9 +34,26 @@ public class SocketNetworkHandler implements NetworkHandler {
     }
 
     @Override
-    public void sendResponseToClient(String response) {
-        out.println(response); // Sends a line of text to the client.
+    public String waitForClientData(Socket clientSocket) {
+        try {
+            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            return in.readLine();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
+
+    @Override
+    public void sendResponseToClient(String response, Socket clientSocket) { // Modified
+        try {
+            out = new PrintWriter(clientSocket.getOutputStream(), true);
+            out.println(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 
     @Override
     public String sendData(String serverName, int portNumber, String data) {
