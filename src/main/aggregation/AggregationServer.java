@@ -6,6 +6,8 @@ import main.common.LamportClock;
 import main.network.NetworkHandler;
 import main.network.SocketNetworkHandler;
 
+import java.io.IOException;
+import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -21,6 +23,7 @@ public class AggregationServer {
     // To store JSON entries along with their sources
     private Map<String, PriorityQueue<WeatherData>> dataStore = new ConcurrentHashMap<>();
 
+    private Queue<Socket> requestQueue = new LinkedList<>();
 
     // To store timestamps for each entry
     private Map<String, Long> timestampStore = new ConcurrentHashMap<>();
@@ -40,7 +43,14 @@ public class AggregationServer {
     }
 
     public void start(int portNumber) {
-        // Start a separate thread to monitor for shutdown command
+        networkHandler.startServer(portNumber); // Starting the server socket
+
+        initializeShutdownMonitor(); // Start the shutdown monitor thread
+        initializeAcceptThread();   // Start the client acceptance thread
+        processClientRequests();    // Start processing client requests
+    }
+
+    private void initializeShutdownMonitor() {
         Thread monitorThread = new Thread(() -> {
             Scanner scanner = new Scanner(System.in);
             while (true) {
@@ -52,28 +62,59 @@ public class AggregationServer {
             }
         });
         monitorThread.start();
+    }
 
-        networkHandler.startServer(portNumber);
+    private void initializeAcceptThread() {
+        Thread acceptThread = new Thread(() -> {
+            while (!shutdown) {
+                Socket clientSocket = networkHandler.acceptConnection();
+                synchronized (requestQueue) {
+                    requestQueue.add(clientSocket);
+                }
+            }
+        });
+        acceptThread.start();
+    }
 
+    private void processClientRequests() {
         try {
             while (!shutdown) {
-                // Wait for data from client
-                String requestData = networkHandler.waitForClientData();
-
-                if (requestData != null) {
-                    // Handle the client's request
-                    String responseData = handleRequest(requestData);
-
-                    // Send a response back to the client
-                    networkHandler.sendResponseToClient(responseData);
+                Socket clientSocket = waitForClient();
+                if (clientSocket != null) {
+                    handleClientSocket(clientSocket);
                 }
             }
         } catch (Exception e) {
-            // Handle any exception that occurred during the server's execution
             e.printStackTrace();
         } finally {
-            // Cleanup resources
             networkHandler.close();
+        }
+    }
+
+    private Socket waitForClient() throws InterruptedException {
+        synchronized (requestQueue) {
+            while (requestQueue.isEmpty()) {
+                Thread.sleep(10);
+            }
+            return requestQueue.poll();
+        }
+    }
+
+    private void handleClientSocket(Socket clientSocket) {
+        try {
+            String requestData = networkHandler.waitForClientData(clientSocket);
+            if (requestData != null) {
+                String responseData = handleRequest(requestData);
+                networkHandler.sendResponseToClient(responseData, clientSocket);
+            }
+        } catch(Exception e) {
+            e.printStackTrace(); // Depending on your use-case, you might want to handle this differently.
+        } finally {
+            try {
+                clientSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

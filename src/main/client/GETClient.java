@@ -7,13 +7,17 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 import main.common.LamportClock;  // Importing the LamportClock class
 import main.common.JSONHandler;
+import java.util.UUID;
 
 public class GETClient {
     private final NetworkHandler networkHandler;
     private LamportClock lamportClock = new LamportClock();
 
+    private String serverID;
+
     // Constructor that accepts a NetworkHandler, defaults to real implementation if none provided.
     public GETClient(NetworkHandler networkHandler) {
+        this.serverID = UUID.randomUUID().toString();
         this.networkHandler = networkHandler;
     }
 
@@ -71,6 +75,7 @@ public class GETClient {
         int currentTime = lamportClock.send();
 
         String getRequest = "GET /weather.json HTTP/1.1\r\n" +
+                "ServerID: " + serverID + "\r\n" +
                 "LamportClock: " + currentTime + "\r\n" +
                 (stationID != null ? "StationID: " + stationID + "\r\n" : "") +
                 "\r\n";
