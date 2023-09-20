@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.UUID;
 
 public class ContentServer {
     private final String serverID;
@@ -17,8 +18,7 @@ public class ContentServer {
     private JSONObject weatherData;
     private ScheduledExecutorService dataUploadScheduler = Executors.newScheduledThreadPool(1);
     private NetworkHandler networkHandler;
-
-
+    private String serverID;
 
     public ContentServer(NetworkHandler networkHandler) {
         this.serverID = UUID.randomUUID().toString();
