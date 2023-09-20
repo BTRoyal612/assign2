@@ -9,8 +9,11 @@ import main.common.LamportClock;  // Importing the LamportClock class
 import main.common.JSONHandler;
 import java.util.UUID;
 
+import java.util.UUID;
+
 public class GETClient {
     private final NetworkHandler networkHandler;
+    private final String serverID;
     private LamportClock lamportClock = new LamportClock();
 
     private String serverID;
@@ -77,6 +80,7 @@ public class GETClient {
         String getRequest = "GET /weather.json HTTP/1.1\r\n" +
                 "ServerID: " + serverID + "\r\n" +
                 "LamportClock: " + currentTime + "\r\n" +
+                "ServerID: " + serverID + "\r\n" +
                 (stationID != null ? "StationID: " + stationID + "\r\n" : "") +
                 "\r\n";
 

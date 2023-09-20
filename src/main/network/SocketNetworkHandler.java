@@ -53,6 +53,8 @@ public class SocketNetworkHandler implements NetworkHandler {
             e.printStackTrace();
         }
     }
+
+
     @Override
     public String sendData(String serverName, int portNumber, String data) {
         try {

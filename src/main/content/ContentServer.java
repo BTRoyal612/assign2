@@ -6,17 +6,18 @@ import main.common.JSONHandler;
 import main.network.NetworkHandler;
 import main.network.SocketNetworkHandler;
 
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 
 public class ContentServer {
+    private final String serverID;
     private LamportClock lamportClock = new LamportClock();
     private JSONObject weatherData;
     private ScheduledExecutorService dataUploadScheduler = Executors.newScheduledThreadPool(1);
     private NetworkHandler networkHandler;
-
     private String serverID;
 
     public ContentServer(NetworkHandler networkHandler) {
