@@ -9,6 +9,7 @@ import main.network.SocketNetworkHandler;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.UUID;
 
 public class ContentServer {
     private LamportClock lamportClock = new LamportClock();
@@ -16,7 +17,10 @@ public class ContentServer {
     private ScheduledExecutorService dataUploadScheduler = Executors.newScheduledThreadPool(1);
     private NetworkHandler networkHandler;
 
+    private String serverID;
+
     public ContentServer(NetworkHandler networkHandler) {
+        this.serverID = UUID.randomUUID().toString();
         this.networkHandler = networkHandler;
     }
 
@@ -77,6 +81,7 @@ public class ContentServer {
 
                 String putRequest = "PUT /uploadData HTTP/1.1\r\n" +
                         "Host: " + serverName + "\r\n" +
+                        "ServerID: " + serverID + "\r\n" +
                         "Content-Type: application/json\r\n" +
                         "Content-Length: " + jsonData.toString().length() + "\r\n" +
                         "\r\n" +

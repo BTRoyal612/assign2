@@ -2,6 +2,8 @@ package test.network;
 
 import main.network.NetworkHandler;
 
+import java.net.Socket;
+
 public class StubNetworkHandler implements NetworkHandler {
     private String lastSentData;
     private String lastReceivedRequest;
@@ -15,12 +17,17 @@ public class StubNetworkHandler implements NetworkHandler {
     }
 
     @Override
-    public String waitForClientData() {
+    public Socket acceptConnection() {
         return null;
     }
 
     @Override
-    public void sendResponseToClient(String response) {
+    public String waitForClientData(Socket clientSocket) {
+        return null;
+    }
+
+    @Override
+    public void sendResponseToClient(String response, Socket clientSocket) {
 
     }
 
