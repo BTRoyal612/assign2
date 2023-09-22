@@ -30,10 +30,10 @@ class AggregationServerTest {
                 StationID: IDS60901\r
                 \r
                 """;
-        stubNetworkHandler.setSimulatedReceiveResponse(getRequest);
+        stubNetworkHandler.setSimulatedResponse(getRequest);
 
         // Run server logic for single request
-        String responseData = server.handleRequest(stubNetworkHandler.receiveData("localhost", 8080, getRequest));
+        String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, getRequest));
 
         // Check if the server response is expected based on setup data
         assertTrue(responseData.contains("IDS60901"));
@@ -51,10 +51,10 @@ class AggregationServerTest {
                 LamportClock: 1\r
                 \r
                 """;
-        stubNetworkHandler.setSimulatedReceiveResponse(getRequest);
+        stubNetworkHandler.setSimulatedResponse(getRequest);
 
         // Run server logic for single request
-        String responseData = server.handleRequest(stubNetworkHandler.receiveData("localhost", 8080, getRequest));
+        String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, getRequest));
 
         // Check if the server response is expected based on setup data
         assertTrue(responseData.contains("IDS60901"));
@@ -69,10 +69,10 @@ class AggregationServerTest {
                 StationID: IDS60901\r
                 \r
                 """;
-        stubNetworkHandler.setSimulatedReceiveResponse(getRequest);
+        stubNetworkHandler.setSimulatedResponse(getRequest);
 
         // Run server logic for single request
-        String responseData = server.handleRequest(stubNetworkHandler.receiveData("localhost", 8080, getRequest));
+        String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, getRequest));
 
         // Check if the server response indicates not found
         assertEquals("404 Not Found", responseData);
@@ -92,32 +92,30 @@ class AggregationServerTest {
                     "id" : "IDS60901",\r
                     "wind_spd_kt": 8\r
                 }""";
-        stubNetworkHandler.setSimulatedReceiveResponse(putRequest);
+        stubNetworkHandler.setSimulatedResponse(putRequest);
 
         // Run server logic for single request
-        String responseData = server.handleRequest(stubNetworkHandler.receiveData("localhost", 8080, putRequest));
+        String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, putRequest));
 
         // Check if the server response is "200 OK"
         assertEquals("200 OK", responseData);
     }
 
     @Test
-    void testShutdown() {
+    void testShutdown() throws InterruptedException {
         // Start the server in a separate thread
         Thread serverThread = new Thread(() -> server.start(8080));
         serverThread.start();
 
         // Simulate waiting for some time
-        try {
-            Thread.sleep(500);  // wait for 0.5 seconds
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        Thread.sleep(500);  // wait for 0.5 seconds
 
         // Send shutdown command
         server.shutdown();
 
+        serverThread.join(2000);  // Wait up to 2 seconds for server thread to terminate
+
         // Check if server is shut down
-        assertFalse(serverThread.isAlive());  // This is a simplified check, more checks might be needed
+        assertFalse(serverThread.isAlive());
     }
 }

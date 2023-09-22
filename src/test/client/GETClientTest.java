@@ -79,7 +79,7 @@ public class GETClientTest {
     @Test
     public void testGetData_SuccessfulResponse() {
         String expectedResponse = "{ \"status\": \"available\", \"data\": \"Sample weather data.\" }";
-        stubNetworkHandler.setSimulatedReceiveResponse(expectedResponse);
+        stubNetworkHandler.setSimulatedResponse(expectedResponse);
 
         JSONObject response = client.getData("testServer", 8080, "testStation");
 
@@ -93,7 +93,7 @@ public class GETClientTest {
     @Test
     public void testGetData_NoDataAvailable() {
         String expectedResponse = "{ \"status\": \"not available\" }";
-        stubNetworkHandler.setSimulatedReceiveResponse(expectedResponse);
+        stubNetworkHandler.setSimulatedResponse(expectedResponse);
 
         JSONObject response = client.getData("testServer", 8080, "testStation");
 
@@ -105,7 +105,7 @@ public class GETClientTest {
 
     @Test
     public void testGetData_NullResponse() {
-        stubNetworkHandler.setSimulatedReceiveResponse(null);  // Simulate no response
+        stubNetworkHandler.setSimulatedResponse(null);  // Simulate no response
 
         JSONObject response = client.getData("testServer", 8080, "testStation");
 
@@ -115,7 +115,7 @@ public class GETClientTest {
     @Test
     public void testGetData_InvalidResponse() {
         String expectedResponse = "This is not a valid JSON.";
-        stubNetworkHandler.setSimulatedReceiveResponse(expectedResponse);
+        stubNetworkHandler.setSimulatedResponse(expectedResponse);
 
         JSONObject response = client.getData("testServer", 8080, "testStation");
 

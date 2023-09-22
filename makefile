@@ -34,7 +34,7 @@ content:
 	$(JAVA) $(CP) $(CONTENT_SERVER) localhost 4567 src/main/client/input.txt
 
 client:
-	$(JAVA) $(CP) $(GETCLIENT) localhost:4567 [IDS60901]
+	$(JAVA) $(CP) $(GETCLIENT) localhost:4567 IDS60901
 
 run: all
 	$(JAVA) $(CP) $(MAIN_CLASS)

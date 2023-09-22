@@ -10,16 +10,13 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.UUID;
 
 public class ContentServer {
     private final String serverID;
     private LamportClock lamportClock = new LamportClock();
     private JSONObject weatherData;
     private ScheduledExecutorService dataUploadScheduler = Executors.newScheduledThreadPool(1);
-    private NetworkHandler networkHandler;
-    private String serverID;
-
+    private final NetworkHandler networkHandler;
     public ContentServer(NetworkHandler networkHandler) {
         this.serverID = UUID.randomUUID().toString();
         this.networkHandler = networkHandler;
@@ -55,7 +52,7 @@ public class ContentServer {
         // Add shutdown hook to gracefully terminate resources
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             server.dataUploadScheduler.shutdown();  // Assuming dataUploadScheduler is accessible here
-            networkHandler.close();
+            networkHandler.closeClient();
         }));
     }
 
@@ -88,7 +85,7 @@ public class ContentServer {
                         "\r\n" +
                         jsonData;
 
-                String response = networkHandler.sendData(serverName, portNumber, putRequest);
+                String response = networkHandler.sendAndReceiveData(serverName, portNumber, putRequest);
 
                 if (response != null && (response.contains("200 OK") || response.contains("201 OK"))) {
                     lamportClock.send();

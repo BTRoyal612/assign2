@@ -6,10 +6,8 @@ import java.net.Socket;
 
 public class StubNetworkHandler implements NetworkHandler {
     private String lastSentData;
-    private String lastReceivedRequest;
     private int sentDataCount = 0;
-    private String simulatedSendResponse = "200 OK"; // Default simulated response for sendData
-    private String simulatedReceiveResponse = "200 OK"; // Default simulated response for receiveData
+    private String simulatedResponse = "200 OK"; // Default simulated response for sendData
 
     @Override
     public void startServer(int portNumber) {
@@ -32,38 +30,28 @@ public class StubNetworkHandler implements NetworkHandler {
     }
 
     @Override
-    public String sendData(String serverName, int portNumber, String data) {
+    public String sendAndReceiveData(String serverName, int portNumber, String data) {
         this.lastSentData = data;
         sentDataCount++;
-        return simulatedSendResponse;
+        return simulatedResponse;
     }
 
     @Override
-    public String receiveData(String serverName, int portNumber, String request) {
-        this.lastReceivedRequest = request;
-        return simulatedReceiveResponse;
+    public void closeClient() {
+
     }
 
     @Override
-    public void close() {
-        // In a stub, the close method might not have much to do.
-        // You can optionally add some behavior here if needed for testing.
+    public void closeServer() {
+
     }
 
     public String getLastSentData() {
         return lastSentData;
     }
 
-    public String getLastReceivedRequest() {
-        return lastReceivedRequest;
-    }
-
-    public void setSimulatedSendResponse(String response) {
-        this.simulatedSendResponse = response;
-    }
-
-    public void setSimulatedReceiveResponse(String response) {
-        this.simulatedReceiveResponse = response;
+    public void setSimulatedResponse(String response) {
+        this.simulatedResponse = response;
     }
 
     public int getSentDataCount() {

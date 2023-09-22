@@ -9,14 +9,11 @@ import main.common.LamportClock;  // Importing the LamportClock class
 import main.common.JSONHandler;
 import java.util.UUID;
 
-import java.util.UUID;
 
 public class GETClient {
     private final NetworkHandler networkHandler;
     private final String serverID;
     private LamportClock lamportClock = new LamportClock();
-
-    private String serverID;
 
     // Constructor that accepts a NetworkHandler, defaults to real implementation if none provided.
     public GETClient(NetworkHandler networkHandler) {
@@ -26,7 +23,7 @@ public class GETClient {
 
     public static void main(String[] args) {
         if (args.length < 2) {
-            System.out.println("Usage: GETClient <serverName>:<portNumber> [<stationID>]");
+            System.out.println("Usage: GETClient <serverName>:<portNumber> <stationID>");
             return;
         }
 
@@ -42,6 +39,8 @@ public class GETClient {
 
         // Interpret and print the response
         client.interpretResponse(response);
+
+        networkHandler.closeClient();
     }
 
     public void interpretResponse(JSONObject response) {
@@ -50,27 +49,14 @@ public class GETClient {
             return;
         }
 
-        if (!response.has("status")) {
-            System.out.println("Error: Invalid response format.");
-            return;
-        }
-
-        String status = response.getString("status");
-
-        if ("not available".equals(status)) {
-            System.out.println("No weather data available.");
-        } else if ("available".equals(status)) {
-            try {
-                String weatherDataText = JSONHandler.convertJSONToText(response);
-                String[] lines = weatherDataText.split("\n");
-                for (String line : lines) {
-                    System.out.println(line);
-                }
-            } catch (Exception e) {
-                throw new RuntimeException("Error while converting JSON to text.", e);
+        try {
+            String weatherDataText = JSONHandler.convertJSONToText(response);
+            String[] lines = weatherDataText.split("\n");
+            for (String line : lines) {
+                System.out.println(line);
             }
-        } else {
-            System.out.println("Error: Unknown response status: " + status);
+        } catch (Exception e) {
+            throw new RuntimeException("Error while converting JSON to text.", e);
         }
     }
 
@@ -80,18 +66,17 @@ public class GETClient {
         String getRequest = "GET /weather.json HTTP/1.1\r\n" +
                 "ServerID: " + serverID + "\r\n" +
                 "LamportClock: " + currentTime + "\r\n" +
-                "ServerID: " + serverID + "\r\n" +
                 (stationID != null ? "StationID: " + stationID + "\r\n" : "") +
                 "\r\n";
 
         try {
-            String responseStr = networkHandler.receiveData(serverName, portNumber, getRequest); // using the stubbed method
+            String responseStr = networkHandler.sendAndReceiveData(serverName, portNumber, getRequest); // using the stubbed method
 
             if (responseStr.startsWith("500")) {
                 System.out.println("Internal Server Error: The JSON data on the server might be in incorrect format.");
                 return null;
             }
-
+            System.out.print(responseStr);
             JSONObject jsonObject = new JSONObject(new JSONTokener(responseStr));
 
             if (jsonObject.has("LamportClock")) {

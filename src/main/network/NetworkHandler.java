@@ -1,5 +1,6 @@
 package main.network;
 
+import java.io.IOException;
 import java.net.Socket;
 
 public interface NetworkHandler {
@@ -7,15 +8,15 @@ public interface NetworkHandler {
     void startServer(int portNumber);
 
     // New method to accept a client connection
-    Socket acceptConnection();
+    Socket acceptConnection() throws IOException; // We let it throw IOException now
 
     String waitForClientData(Socket clientSocket);
 
     void sendResponseToClient(String response, Socket clientSocket);
 
-    // Client-side methods
-    String sendData(String serverName, int portNumber, String data);
-    String receiveData(String serverName, int portNumber, String request);
+    String sendAndReceiveData(String serverName, int portNumber, String data);
 
-    void close();
+    void closeClient();
+
+    void closeServer();
 }

@@ -15,6 +15,7 @@ public class AggregationServer {
 
     private static final int DEFAULT_PORT = 4567;
     private volatile boolean shutdown = false;
+    private Thread acceptThread;
     private NetworkHandler networkHandler;
 
     // Lamport clock for the server
@@ -23,7 +24,8 @@ public class AggregationServer {
     // To store JSON entries along with their sources
     private Map<String, PriorityQueue<WeatherData>> dataStore = new ConcurrentHashMap<>();
 
-    private Queue<Socket> requestQueue = new LinkedList<>();
+    private LinkedBlockingQueue<Socket> requestQueue = new LinkedBlockingQueue<>();
+
     // To store timestamps for each entry
     private Map<String, Long> timestampStore = new ConcurrentHashMap<>();
 
@@ -41,6 +43,20 @@ public class AggregationServer {
         this.networkHandler = networkHandler;
     }
 
+    public void start(int portNumber) {
+        System.out.println("server start");
+        networkHandler.startServer(portNumber); // Starting the server socket
+
+        System.out.println("monitor shutdown start");
+        initializeShutdownMonitor(); // Start the shutdown monitor thread
+
+        System.out.println("accept connection start");
+        initializeAcceptThread();   // Start the client acceptance thread
+
+        System.out.println("process requests");
+        processClientRequests();    // Start processing client requests
+    }
+
     private void initializeShutdownMonitor() {
         Thread monitorThread = new Thread(() -> {
             Scanner scanner = new Scanner(System.in);
@@ -56,11 +72,22 @@ public class AggregationServer {
     }
 
     private void initializeAcceptThread() {
-        Thread acceptThread = new Thread(() -> {
-            while (!shutdown) {
-                Socket clientSocket = networkHandler.acceptConnection();
-                synchronized (requestQueue) {
-                    requestQueue.add(clientSocket);
+        acceptThread = new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    Socket clientSocket = networkHandler.acceptConnection();
+                    if(clientSocket != null) {
+                        System.out.println("Accepted connection from: " + clientSocket);
+                        requestQueue.put(clientSocket);
+                    }
+                } catch (IOException e) {
+                    if(Thread.currentThread().isInterrupted()){
+                        // The thread was interrupted during the blocking acceptConnection call
+                        break;
+                    }
+                    e.printStackTrace();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
                 }
             }
         });
@@ -72,28 +99,26 @@ public class AggregationServer {
             while (!shutdown) {
                 Socket clientSocket = waitForClient();
                 if (clientSocket != null) {
+                    System.out.println("new connection");
                     handleClientSocket(clientSocket);
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            networkHandler.close();
+            networkHandler.closeServer();
         }
     }
 
     private Socket waitForClient() throws InterruptedException {
-        synchronized (requestQueue) {
-            while (requestQueue.isEmpty()) {
-                Thread.sleep(10);
-            }
-            return requestQueue.poll();
-        }
+        if(shutdown) return null;
+        return requestQueue.poll(10, TimeUnit.MILLISECONDS);
     }
 
     private void handleClientSocket(Socket clientSocket) {
         try {
             String requestData = networkHandler.waitForClientData(clientSocket);
+            System.out.println(requestData);
             if (requestData != null) {
                 String responseData = handleRequest(requestData);
                 networkHandler.sendResponseToClient(responseData, clientSocket);
@@ -108,18 +133,14 @@ public class AggregationServer {
             }
         }
     }
-
-    public void start(int portNumber) {
-        networkHandler.startServer(portNumber); // Starting the server socket
-
-        initializeShutdownMonitor(); // Start the shutdown monitor thread
-        initializeAcceptThread();   // Start the client acceptance thread
-        processClientRequests();    // Start processing client requests
-    }
-
-
     public void shutdown() {
         this.shutdown = true;
+
+        // Interrupt the acceptThread to break the potential blocking call
+        if(acceptThread != null) {
+            acceptThread.interrupt();
+        }
+
         System.out.println("Shutting down server...");
     }
 
@@ -201,7 +222,7 @@ public class AggregationServer {
             return "404 Not Found No Valid Data";  // No data available matching the Lamport time condition
         }
 
-        return "Station ID: " + stationId + "\n" + targetData.get();
+        return targetData.get().getData().toString();
     }
 
 

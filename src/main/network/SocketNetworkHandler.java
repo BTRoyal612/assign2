@@ -1,11 +1,9 @@
 package main.network;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 
 public class SocketNetworkHandler implements NetworkHandler {
     private ServerSocket serverSocket;
@@ -24,20 +22,58 @@ public class SocketNetworkHandler implements NetworkHandler {
 
     // New method to accept a client connection
     @Override
-    public Socket acceptConnection() {
+    public Socket acceptConnection() throws IOException {
+        if (serverSocket == null) {
+            throw new IllegalStateException("Server not started");
+        }
+
+        serverSocket.setSoTimeout(1000); // Set a timeout for the accept method (1 second for this example)
         try {
             return serverSocket.accept();
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SocketTimeoutException e) {
+            // If timeout occurs, check if it's interrupted, else continue waiting
+            if(Thread.currentThread().isInterrupted()){
+                throw new IOException("Socket accept interrupted", e);
+            }
             return null;
         }
     }
 
     @Override
     public String waitForClientData(Socket clientSocket) {
+        StringBuilder requestBuilder = new StringBuilder();
+
         try {
-            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-            return in.readLine();
+            InputStream input = clientSocket.getInputStream();
+            BufferedReader in = new BufferedReader(new InputStreamReader(input));
+
+            String line;
+            int contentLength = 0;
+            boolean isHeader = true;
+
+            // Read headers
+            while (isHeader && (line = in.readLine()) != null) {
+                if (line.startsWith("Content-Length: ")) {
+                    contentLength = Integer.parseInt(line.split(":")[1].trim());
+                }
+
+                requestBuilder.append(line).append("\r\n");
+
+                // Blank line indicates end of headers and start of body
+                if (line.isEmpty()) {
+                    isHeader = false;
+                }
+            }
+
+            // Read body
+            if (contentLength > 0) {
+                char[] bodyChars = new char[contentLength];
+                in.read(bodyChars, 0, contentLength);
+                requestBuilder.append(bodyChars);
+            }
+
+            return requestBuilder.toString();
+
         } catch (Exception e) {
             e.printStackTrace();
             return null;
@@ -54,34 +90,12 @@ public class SocketNetworkHandler implements NetworkHandler {
         }
     }
 
-
     @Override
-    public String sendData(String serverName, int portNumber, String data) {
+    public String sendAndReceiveData(String serverName, int portNumber, String data) {
         try {
             initializeSocket(serverName, portNumber);
+            System.out.println("connect to server");
             out.println(data);
-
-            StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = in.readLine()) != null && !line.isEmpty()) {
-                response.append(line);
-            }
-
-            return response.toString();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
-        } finally {
-            close();
-        }
-    }
-
-    @Override
-    public String receiveData(String serverName, int portNumber, String request) {
-        try {
-            initializeSocket(serverName, portNumber);
-            out.println(request);
 
             StringBuilder response = new StringBuilder();
             String line;
@@ -90,14 +104,14 @@ public class SocketNetworkHandler implements NetworkHandler {
             }
 
             return response.toString();
-
         } catch (IOException e) {
             e.printStackTrace();
             return null;
         } finally {
-            close();
+            closeClient();
         }
     }
+
 
     private void initializeSocket(String serverName, int portNumber) throws IOException {
         if (clientSocket == null || clientSocket.isClosed()) {
@@ -108,14 +122,22 @@ public class SocketNetworkHandler implements NetworkHandler {
     }
 
     @Override
-    public void close() {
+    public void closeClient() {
         try {
-            in.close();
-            out.close();
-            clientSocket.close();
-            serverSocket.close();
+            if (in != null) in.close();
+            if (out != null) out.close();
+            if (clientSocket != null) clientSocket.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
+    @Override
+    public void closeServer() {
+        try {
+            if (serverSocket != null) serverSocket.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 }
