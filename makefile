@@ -38,7 +38,7 @@ aggregation: all
 	@$(JAVA) $(CP) $(AGGREGATION_SERVER)
 
 content: all
-	@$(JAVA) $(CP) $(CONTENT_SERVER) localhost 4567 $(SRC)/main/client/input.txt
+	@$(JAVA) $(CP) $(CONTENT_SERVER) localhost 4567 $(SRC)/main/content/input.txt
 
 client: all
 	@$(JAVA) $(CP) $(GETCLIENT) localhost:4567 IDS60901

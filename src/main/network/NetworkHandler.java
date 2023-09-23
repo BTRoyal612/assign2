@@ -14,7 +14,7 @@ public interface NetworkHandler {
 
     void sendResponseToClient(String response, Socket clientSocket);
 
-    String sendAndReceiveData(String serverName, int portNumber, String data);
+    String sendAndReceiveData(String serverName, int portNumber, String data, boolean isContentServer);
 
     void closeClient();
 

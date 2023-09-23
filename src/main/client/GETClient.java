@@ -4,7 +4,6 @@ import main.network.NetworkHandler;
 import main.network.SocketNetworkHandler;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.json.JSONTokener;
 import main.common.LamportClock;  // Importing the LamportClock class
 import main.common.JSONHandler;
 import java.util.UUID;
@@ -93,14 +92,16 @@ public class GETClient {
                 "\r\n";
 
         try {
-            String responseStr = networkHandler.sendAndReceiveData(serverName, portNumber, getRequest); // using the stubbed method
+            String responseStr = networkHandler.sendAndReceiveData(serverName, portNumber, getRequest, false); // using the stubbed method
 
-            if (responseStr.startsWith("500")) {
+            System.out.println(responseStr);
+
+            if (responseStr.contains("500")) {
                 System.out.println("Internal Server Error: The JSON data on the server might be in incorrect format.");
                 return null;
             }
-            System.out.print(responseStr);
-            JSONObject jsonObject = new JSONObject(new JSONTokener(responseStr));
+
+            JSONObject jsonObject = new JSONObject(JSONHandler.extractJSONContent(responseStr));
 
             if (jsonObject.has("LamportClock")) {
                 int receivedLamportClock = jsonObject.getInt("LamportClock");

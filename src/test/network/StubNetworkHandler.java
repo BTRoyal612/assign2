@@ -30,7 +30,7 @@ public class StubNetworkHandler implements NetworkHandler {
     }
 
     @Override
-    public String sendAndReceiveData(String serverName, int portNumber, String data) {
+    public String sendAndReceiveData(String serverName, int portNumber, String data, boolean isContentServer) {
         this.lastSentData = data;
         sentDataCount++;
         return simulatedResponse;
@@ -38,12 +38,10 @@ public class StubNetworkHandler implements NetworkHandler {
 
     @Override
     public void closeClient() {
-
     }
 
     @Override
     public void closeServer() {
-
     }
 
     public String getLastSentData() {

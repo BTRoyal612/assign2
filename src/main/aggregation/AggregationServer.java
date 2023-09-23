@@ -218,13 +218,13 @@ public class AggregationServer {
             if (optionalStationId.isPresent()) {
                 stationId = optionalStationId.get();
             } else {
-                return "404 Not Found Null StationID";
+                return formatHttpResponse("404 Not Found", "Null StationID", null);
             }
         }
 
         PriorityQueue<WeatherData> weatherDataQueue = dataStore.get(stationId);
         if (weatherDataQueue == null || weatherDataQueue.isEmpty()) {
-            return "404 Not Found";  // No data available for the given station ID
+            return formatHttpResponse("404 Not Found", null, null); // No data available for the given station ID
         }
 
         // Find the first WeatherData with Lamport time less than the request's Lamport time
@@ -232,11 +232,11 @@ public class AggregationServer {
                 .filter(data -> data.getLamportTime() <= lamportTime)
                 .findFirst();
 
-        if (targetData.isPresent()) {
-            return "404 Not Found No Valid Data";  // No data available matching the Lamport time condition
+        if (!targetData.isPresent()) {
+            return formatHttpResponse("404 Not Found", "No Valid Data", null); // No data available matching the Lamport time condition
         }
 
-        return targetData.get().getData().toString();
+        return formatHttpResponse("200 OK", null, targetData.get().getData().toString());
     }
 
     /**
@@ -252,7 +252,7 @@ public class AggregationServer {
         // Extract the server ID
         String serverId = headers.get("ServerID");
         if (serverId == null || serverId.isEmpty()) {
-            return "400 Bad Request No ServerID"; // Server ID is mandatory in PUT request
+            return formatHttpResponse("400 Bad Request", "No ServerID", null); // Server ID is mandatory in PUT request
         }
 
         // Parse the content into a JSONObject
@@ -260,14 +260,14 @@ public class AggregationServer {
         try {
             weatherDataJSON = new JSONObject(content);
         } catch (Exception e) {
-            return "400 Bad Request Malformed JSON";  // Malformed JSON data
+            return formatHttpResponse("400 Bad Request", "Malformed JSON", null); // Malformed JSON data
         }
 
         // Use the new method to add weather data to the DataStore
         if (addWeatherData(weatherDataJSON, lamportTime, serverId)) {
-            return "200 OK";
+            return formatHttpResponse("200 OK", null, null);
         } else {
-            return "400 Bad Request"; // Failed to add data
+            return formatHttpResponse("400 Bad Request", null, null); // Failed to add data
         }
     }
 
@@ -292,6 +292,28 @@ public class AggregationServer {
         dataStore.computeIfAbsent(stationId, k -> new PriorityQueue<>()).add(newData);
 
         return true;
+    }
+
+    private String formatHttpResponse(String status, String message, String jsonData) {
+        StringBuilder response = new StringBuilder();
+
+        response.append("HTTP/1.1 ").append(status).append("\r\n");
+        response.append("LamportClock: ").append(lamportClock.send()).append("\r\n");
+
+        if (jsonData != null) {
+            response.append("Content-Type: application/json\r\n");
+            response.append("Content-Length: ").append(jsonData.length()).append("\r\n");
+            response.append("\r\n");
+            response.append(jsonData);
+        } else if (message != null) {
+            response.append("Content-Length: ").append(message.length()).append("\r\n");
+            response.append("\r\n");
+            response.append(message);
+        } else {
+            response.append("\r\n");
+        }
+
+        return response.toString();
     }
 
     /**

@@ -91,32 +91,58 @@ public class SocketNetworkHandler implements NetworkHandler {
     }
 
     @Override
-    public String sendAndReceiveData(String serverName, int portNumber, String data) {
+    public String sendAndReceiveData(String serverName, int portNumber, String data, boolean isContentServer) {
         try {
             initializeSocket(serverName, portNumber);
-            System.out.println("connect to server");
-            out.println(data);
+            out.println(data);  // Sending the request data
 
-            StringBuilder response = new StringBuilder();
+            StringBuilder responseBuilder = new StringBuilder();
             String line;
-            while ((line = in.readLine()) != null && !line.isEmpty()) {
-                response.append(line).append("\n");
+            int contentLength = 0;
+            boolean isHeader = true;
+
+            // Read headers
+            while (isHeader && (line = in.readLine()) != null) {
+                if (line.startsWith("Content-Length: ")) {
+                    contentLength = Integer.parseInt(line.split(":")[1].trim());
+                }
+
+                responseBuilder.append(line).append("\r\n");
+
+                // Blank line indicates end of headers and start of body
+                if (line.isEmpty()) {
+                    isHeader = false;
+                }
             }
 
-            return response.toString();
+            // Read body
+            if (!isContentServer && contentLength > 0) {
+                char[] bodyChars = new char[contentLength];
+                in.read(bodyChars, 0, contentLength);
+                responseBuilder.append(bodyChars);
+            }
+
+            return responseBuilder.toString();
+
         } catch (IOException e) {
             e.printStackTrace();
             return null;
         } finally {
-            closeClient();
+            if (!isContentServer) {
+                closeClient();
+            }
         }
     }
 
     private void initializeSocket(String serverName, int portNumber) throws IOException {
-        if (clientSocket == null || clientSocket.isClosed()) {
+        closeClient();  // Close any existing open resources
+
+        try {
             clientSocket = new Socket(serverName, portNumber);
             out = new PrintWriter(clientSocket.getOutputStream(), true);
             in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
