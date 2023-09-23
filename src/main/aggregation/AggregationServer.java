@@ -232,7 +232,7 @@ public class AggregationServer {
                 .filter(data -> data.getLamportTime() <= lamportTime)
                 .findFirst();
 
-        if (targetData.isEmpty()) {
+        if (targetData.isPresent()) {
             return "404 Not Found No Valid Data";  // No data available matching the Lamport time condition
         }
 
