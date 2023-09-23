@@ -1,19 +1,15 @@
 # Variables
 JAVA = java
 JAVAC = javac
-CP = -cp lib/json-20230227.jar:src/
-SOURCES = src/main/client/GETClient.java \
-					src/main/aggregation/AggregationServer.java \
-          src/main/common/JSONHandler.java \
-          src/main/common/LamportClock.java \
-          src/main/content/ContentServer.java \
-          src/main/network/NetworkHandler.java \
-          src/main/network/SocketNetworkHandler.java \
-          # src/test/client/GETClientTest.java \
-          # src/test/common/JSONHandlerTest.java \
-          # src/test/content/ContentServerTest.java \
-          # src/test/network/StubNetworkHandler.java \
+LIB = lib
+SRC = src
+CP = -cp $(LIB)/json-20230227.jar:$(SRC)/
+CPTEST = -cp $(LIB)/*:$(SRC)/
 
+MAIN_CLASSES = $(patsubst %.java,%.class,$(wildcard $(SRC)/main/**/*.java))
+TEST_CLASSES = $(patsubst %.java,%.class,$(wildcard $(SRC)/test/**/*.java))
+
+TEST_MAIN_CLASS = org.junit.platform.console.ConsoleLauncher
 MAIN_CLASS = test.client.GETClientTest
 AGGREGATION_SERVER = main.aggregation.AggregationServer
 CONTENT_SERVER = main.content.ContentServer
@@ -21,22 +17,33 @@ GETCLIENT = main.client.GETClient
 
 # Targets and their actions
 
-all:
-	$(JAVAC) $(CP) $(SOURCES)
+all: $(MAIN_CLASSES)
+
+$(SRC)/main/%.class: $(SRC)/main/%.java
+	@$(JAVAC) $(CP) $<
+
+$(SRC)/test/%.class: $(SRC)/test/%.java
+	@$(JAVAC) $(CPTEST) $<
+
+# Compile JUnit test files
+test: $(TEST_CLASSES)
+
+test_run: test
+	@$(JAVA) $(CPTEST) $(TEST_MAIN_CLASS) --scan-class-path
 
 clean:
-	find . -name "*.class" -exec rm {} +
+	@find . -name "*.class" -exec rm {} +
 
-aggregation:
-	$(JAVA) $(CP) $(AGGREGATION_SERVER)
+aggregation: all
+	@$(JAVA) $(CP) $(AGGREGATION_SERVER)
 
-content:
-	$(JAVA) $(CP) $(CONTENT_SERVER) localhost 4567 src/main/client/input.txt
+content: all
+	@$(JAVA) $(CP) $(CONTENT_SERVER) localhost 4567 $(SRC)/main/client/input.txt
 
-client:
-	$(JAVA) $(CP) $(GETCLIENT) localhost:4567 IDS60901
+client: all
+	@$(JAVA) $(CP) $(GETCLIENT) localhost:4567 IDS60901
 
 run: all
-	$(JAVA) $(CP) $(MAIN_CLASS)
+	@$(JAVA) $(CP) $(MAIN_CLASS)
 
-.PHONY: all clean
+.PHONY: all clean test

@@ -12,7 +12,6 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class AggregationServer {
-
     private static final int DEFAULT_PORT = 4567;
     private volatile boolean shutdown = false;
     private Thread acceptThread;
@@ -29,6 +28,10 @@ public class AggregationServer {
     // To store timestamps for each entry
     private Map<String, Long> timestampStore = new ConcurrentHashMap<>();
 
+    /**
+     * Main method to start the AggregationServer.
+     * @param args Command line arguments, where the first argument is expected to be the server port.
+     */
     public static void main(String[] args) {
         int port = DEFAULT_PORT;
         if (args.length > 0) {
@@ -39,10 +42,18 @@ public class AggregationServer {
         server.start(port);
     }
 
+    /**
+     * Constructor for AggregationServer.
+     * @param networkHandler The network handler responsible for handling server's network interactions.
+     */
     public AggregationServer(NetworkHandler networkHandler) {
         this.networkHandler = networkHandler;
     }
 
+    /**
+     * Starts the server and initializes required components.
+     * @param portNumber The port number on which the server will listen for incoming connections.
+     */
     public void start(int portNumber) {
         System.out.println("server start");
         networkHandler.startServer(portNumber); // Starting the server socket
@@ -57,6 +68,9 @@ public class AggregationServer {
         processClientRequests();    // Start processing client requests
     }
 
+    /**
+     * Initializes a monitor thread that listens for SHUTDOWN command from the console to shut down the server.
+     */
     private void initializeShutdownMonitor() {
         Thread monitorThread = new Thread(() -> {
             Scanner scanner = new Scanner(System.in);
@@ -71,6 +85,9 @@ public class AggregationServer {
         monitorThread.start();
     }
 
+    /**
+     * Initializes a thread to continuously accept incoming client connections and add them to a request queue.
+     */
     private void initializeAcceptThread() {
         acceptThread = new Thread(() -> {
             while (!Thread.currentThread().isInterrupted()) {
@@ -94,6 +111,9 @@ public class AggregationServer {
         acceptThread.start();
     }
 
+    /**
+     * Continuously processes incoming client requests until the server is shut down.
+     */
     private void processClientRequests() {
         try {
             while (!shutdown) {
@@ -110,11 +130,20 @@ public class AggregationServer {
         }
     }
 
+    /**
+     * Waits for an incoming client connection from the request queue.
+     * @return A socket representing the client connection or null if server is shutting down.
+     * @throws InterruptedException If the waiting thread is interrupted.
+     */
     private Socket waitForClient() throws InterruptedException {
         if(shutdown) return null;
         return requestQueue.poll(10, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * Handles communication with a connected client, including reading request data and sending a response.
+     * @param clientSocket The socket through which the client is connected.
+     */
     private void handleClientSocket(Socket clientSocket) {
         try {
             String requestData = networkHandler.waitForClientData(clientSocket);
@@ -133,33 +162,12 @@ public class AggregationServer {
             }
         }
     }
-    public void shutdown() {
-        this.shutdown = true;
 
-        // Interrupt the acceptThread to break the potential blocking call
-        if(acceptThread != null) {
-            acceptThread.interrupt();
-        }
-
-        System.out.println("Shutting down server...");
-    }
-
-    public boolean addWeatherData(JSONObject weatherDataJSON, int lamportTime, String serverId) {
-        // Extract station ID from the parsed JSON
-        String stationId = weatherDataJSON.optString("id", null);
-        if (stationId == null || stationId.isEmpty()) {
-            return false;  // Station ID missing in the JSON content
-        }
-
-        // Create a new WeatherData object
-        WeatherData newData = new WeatherData(weatherDataJSON, lamportTime, serverId);
-
-        // Add the new WeatherData object to the priority queue associated with the station ID
-        dataStore.computeIfAbsent(stationId, k -> new PriorityQueue<>()).add(newData);
-
-        return true;
-    }
-
+    /**
+     * Processes a given client request and returns an appropriate response.
+     * @param requestData The client's request data as a string.
+     * @return A string representing the server's response.
+     */
     public String handleRequest(String requestData) {
         String[] lines = requestData.split("\r\n");
         String requestType = lines[0].split(" ")[0].trim();
@@ -193,6 +201,12 @@ public class AggregationServer {
         }
     }
 
+    /**
+     * Processes a GET request and returns an appropriate response.
+     * @param headers A map containing request headers.
+     * @param content The content/body of the request.
+     * @return A string representing the server's response.
+     */
     public String handleGetRequest(Map<String, String> headers, String content) {
         int lamportTime = Integer.parseInt(headers.getOrDefault("LamportClock", "-1"));
         lamportClock.receive(lamportTime);
@@ -225,7 +239,12 @@ public class AggregationServer {
         return targetData.get().getData().toString();
     }
 
-
+    /**
+     * Processes a PUT request and returns an appropriate response.
+     * @param headers A map containing request headers.
+     * @param content The content/body of the request.
+     * @return A string representing the server's response.
+     */
     private String handlePutRequest(Map<String, String> headers, String content) {
         int lamportTime = Integer.parseInt(headers.getOrDefault("LamportClock", "-1"));
         lamportClock.receive(lamportTime);
@@ -250,6 +269,43 @@ public class AggregationServer {
         } else {
             return "400 Bad Request"; // Failed to add data
         }
+    }
+
+    /**
+     * Adds weather data to the server's data store.
+     * @param weatherDataJSON The JSON representation of the weather data.
+     * @param lamportTime The Lamport timestamp associated with the data.
+     * @param serverId The identifier of the server sending the data.
+     * @return True if the data was added successfully, false otherwise.
+     */
+    public boolean addWeatherData(JSONObject weatherDataJSON, int lamportTime, String serverId) {
+        // Extract station ID from the parsed JSON
+        String stationId = weatherDataJSON.optString("id", null);
+        if (stationId == null || stationId.isEmpty()) {
+            return false;  // Station ID missing in the JSON content
+        }
+
+        // Create a new WeatherData object
+        WeatherData newData = new WeatherData(weatherDataJSON, lamportTime, serverId);
+
+        // Add the new WeatherData object to the priority queue associated with the station ID
+        dataStore.computeIfAbsent(stationId, k -> new PriorityQueue<>()).add(newData);
+
+        return true;
+    }
+
+    /**
+     * Initiates the server shutdown sequence, interrupting the client acceptance thread.
+     */
+    public void shutdown() {
+        this.shutdown = true;
+
+        // Interrupt the acceptThread to break the potential blocking call
+        if(acceptThread != null) {
+            acceptThread.interrupt();
+        }
+
+        System.out.println("Shutting down server...");
     }
 
     // TODO: Implement methods to handle file management

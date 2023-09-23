@@ -112,7 +112,6 @@ public class SocketNetworkHandler implements NetworkHandler {
         }
     }
 
-
     private void initializeSocket(String serverName, int portNumber) throws IOException {
         if (clientSocket == null || clientSocket.isClosed()) {
             clientSocket = new Socket(serverName, portNumber);
@@ -139,5 +138,4 @@ public class SocketNetworkHandler implements NetworkHandler {
             e.printStackTrace();
         }
     }
-
 }

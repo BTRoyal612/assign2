@@ -15,12 +15,21 @@ public class GETClient {
     private final String serverID;
     private LamportClock lamportClock = new LamportClock();
 
-    // Constructor that accepts a NetworkHandler, defaults to real implementation if none provided.
+    /**
+     * Constructor for GETClient.
+     * Initializes the client with the given NetworkHandler and a randomly generated serverID.
+     * @param networkHandler The network handler to manage client-server communication.
+     */
     public GETClient(NetworkHandler networkHandler) {
         this.serverID = UUID.randomUUID().toString();
         this.networkHandler = networkHandler;
     }
 
+    /**
+     * Main entry point for the GETClient.
+     * @param args Command line arguments, where the first argument specifies the server (format: <serverName>:<portNumber>),
+     *             and the optional second argument is the stationID.
+     */
     public static void main(String[] args) {
         if (args.length < 2) {
             System.out.println("Usage: GETClient <serverName>:<portNumber> <stationID>");
@@ -43,6 +52,11 @@ public class GETClient {
         networkHandler.closeClient();
     }
 
+    /**
+     * Interprets and prints the response received from the server.
+     * Converts the response JSON to text and prints it to the console.
+     * @param response The JSONObject representing the server's response.
+     */
     public void interpretResponse(JSONObject response) {
         if (response == null) {
             System.out.println("Error: No response from server.");
@@ -60,6 +74,15 @@ public class GETClient {
         }
     }
 
+    /**
+     * Sends a GET request to retrieve weather data from the server.
+     * Constructs a GET request, sends it to the specified server, and processes the response.
+     * Updates the Lamport clock based on the server's response.
+     * @param serverName The name or address of the server.
+     * @param portNumber The port number on which the server is listening.
+     * @param stationID Optional parameter specifying a specific stationID for data retrieval. Can be null.
+     * @return A JSONObject containing the server's response or null in case of an error.
+     */
     public JSONObject getData(String serverName, int portNumber, String stationID) {
         int currentTime = lamportClock.send();
 

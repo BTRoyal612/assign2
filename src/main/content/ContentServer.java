@@ -17,11 +17,24 @@ public class ContentServer {
     private JSONObject weatherData;
     private ScheduledExecutorService dataUploadScheduler = Executors.newScheduledThreadPool(1);
     private final NetworkHandler networkHandler;
+
+    /**
+     * Constructor for ContentServer.
+     * Initializes the server with a unique ID and the provided network handler.
+     * @param networkHandler The network handler to manage server-server communication.
+     */
     public ContentServer(NetworkHandler networkHandler) {
         this.serverID = UUID.randomUUID().toString();
         this.networkHandler = networkHandler;
     }
 
+    /**
+     * Main entry point for the ContentServer.
+     * @param args Command line arguments, where:
+     *             - The first argument specifies the server name.
+     *             - The second argument is the port number.
+     *             - The third argument is the file path to load weather data from.
+     */
     public static void main(String[] args) {
         if (args.length < 3) {
             System.out.println("Usage: ContentServer <serverName> <portNumber> <filePath>");
@@ -56,10 +69,19 @@ public class ContentServer {
         }));
     }
 
+    /**
+     * Retrieves the weather data stored in the server.
+     * @return A JSONObject containing the weather data.
+     */
     public JSONObject getWeatherData() {
         return weatherData;
     }
 
+    /**
+     * Loads weather data from the given file path and converts it to a JSONObject.
+     * @param filePath The path to the file containing weather data.
+     * @return True if the weather data was loaded successfully, false otherwise.
+     */
     public boolean loadWeatherData(String filePath) {
         try {
             String fileContent = JSONHandler.readFile(filePath);
@@ -71,15 +93,22 @@ public class ContentServer {
         }
     }
 
+    /**
+     * Schedules the upload of weather data to a specified server at regular intervals.
+     * Constructs a PUT request, sends it to the specified server, and handles the server's response.
+     * Updates the Lamport clock based on successful uploads.
+     * @param serverName The name or address of the receiving server.
+     * @param portNumber The port number on which the receiving server is listening.
+     */
     public void uploadWeatherData(String serverName, int portNumber) {
         dataUploadScheduler.scheduleAtFixedRate(() -> {
             try {
                 JSONObject jsonData = new JSONObject(weatherData.toString()); // assuming this directly gives a JSONObject
-                jsonData.put("LamportClock", lamportClock.send());
 
                 String putRequest = "PUT /uploadData HTTP/1.1\r\n" +
                         "Host: " + serverName + "\r\n" +
                         "ServerID: " + serverID + "\r\n" +
+                        "LamportClock: " + lamportClock.send() + "\r\n" +
                         "Content-Type: application/json\r\n" +
                         "Content-Length: " + jsonData.toString().length() + "\r\n" +
                         "\r\n" +
