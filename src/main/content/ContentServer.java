@@ -6,6 +6,7 @@ import main.common.JSONHandler;
 import main.network.NetworkHandler;
 import main.network.SocketNetworkHandler;
 
+import java.util.Scanner;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -61,6 +62,7 @@ public class ContentServer {
         }
 
         server.uploadWeatherData(serverName, portNumber);
+        server.initializeShutdownMonitor();
 
         // Add shutdown hook to gracefully terminate resources
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -114,7 +116,9 @@ public class ContentServer {
                         "\r\n" +
                         jsonData;
 
-                String response = networkHandler.sendAndReceiveData(serverName, portNumber, putRequest);
+                String response = networkHandler.sendAndReceiveData(serverName, portNumber, putRequest, true);
+
+                System.out.print(response);
 
                 if (response != null && (response.contains("200 OK") || response.contains("201 OK"))) {
                     lamportClock.send();
@@ -126,5 +130,39 @@ public class ContentServer {
                 System.out.println("Error while connecting to the server: " + e.getMessage());
             }
         }, 0, 30, TimeUnit.SECONDS);
+    }
+
+    private void initializeShutdownMonitor() {
+        Thread monitorThread = new Thread(() -> {
+            Scanner scanner = new Scanner(System.in);
+            while (true) {
+                String input = scanner.nextLine();
+                if ("SHUTDOWN".equalsIgnoreCase(input)) {
+                    shutdown();
+                    break;
+                }
+            }
+        });
+        monitorThread.start();
+    }
+
+    private void shutdown() {
+        System.out.println("Shutting down ContentServer...");
+
+        // Shutdown data upload scheduler
+        dataUploadScheduler.shutdown();
+        try {
+            if (!dataUploadScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                dataUploadScheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            dataUploadScheduler.shutdownNow();
+        }
+
+        // Close any other resources such as the network handler
+        networkHandler.closeClient();
+
+        System.out.println("ContentServer shutdown complete.");
+        System.exit(0);  // Exit the program
     }
 }

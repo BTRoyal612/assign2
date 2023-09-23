@@ -33,7 +33,7 @@ class AggregationServerTest {
         stubNetworkHandler.setSimulatedResponse(getRequest);
 
         // Run server logic for single request
-        String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, getRequest));
+        String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, getRequest, false));
 
         // Check if the server response is expected based on setup data
         assertTrue(responseData.contains("IDS60901"));
@@ -54,7 +54,7 @@ class AggregationServerTest {
         stubNetworkHandler.setSimulatedResponse(getRequest);
 
         // Run server logic for single request
-        String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, getRequest));
+        String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, getRequest, false));
 
         // Check if the server response is expected based on setup data
         assertTrue(responseData.contains("IDS60901"));
@@ -72,7 +72,7 @@ class AggregationServerTest {
         stubNetworkHandler.setSimulatedResponse(getRequest);
 
         // Run server logic for single request
-        String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, getRequest));
+        String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, getRequest, false));
 
         // Check if the server response indicates not found
         assertEquals("404 Not Found", responseData);
@@ -95,7 +95,7 @@ class AggregationServerTest {
         stubNetworkHandler.setSimulatedResponse(putRequest);
 
         // Run server logic for single request
-        String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, putRequest));
+        String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, putRequest, false));
 
         // Check if the server response is "200 OK"
         assertEquals("200 OK", responseData);
