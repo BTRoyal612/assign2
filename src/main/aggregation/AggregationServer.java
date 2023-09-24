@@ -11,15 +11,18 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 import org.json.JSONException;
 
 public class AggregationServer {
     private static final int DEFAULT_PORT = 4567;
-    private static final long THRESHOLD = 40000; // 45 seconds
+    private static final long THRESHOLD = 40000;
     private volatile boolean shutdown = false;
     private Thread acceptThread;
     private NetworkHandler networkHandler;
+
+    private ScheduledExecutorService cleanupScheduler;
 
     // Lamport clock for the server
     private LamportClock lamportClock = new LamportClock();
@@ -62,6 +65,10 @@ public class AggregationServer {
         System.out.println("server start");
         networkHandler.startServer(portNumber); // Starting the server socket
 
+        // Initialize cleanup task
+        cleanupScheduler = Executors.newScheduledThreadPool(1);
+        cleanupScheduler.scheduleAtFixedRate(this::cleanupStaleEntries, 0, 21, TimeUnit.SECONDS);
+
         System.out.println("monitor shutdown start");
         initializeShutdownMonitor(); // Start the shutdown monitor thread
 
@@ -87,6 +94,35 @@ public class AggregationServer {
             }
         });
         monitorThread.start();
+    }
+
+    private void cleanupStaleEntries() {
+        long currentTime = System.currentTimeMillis();
+
+        // Identify stale server IDs
+        Set<String> staleSenderIds = timestampStore.entrySet().stream()
+                .filter(entry -> currentTime - entry.getValue() > THRESHOLD)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+
+        // Remove stale server IDs from timestampStore
+        timestampStore.keySet().removeAll(staleSenderIds);
+
+        System.out.println("\nBefore Cleanup: " + dataStore);
+
+        // Remove data entries associated with stale server IDs
+        for (String stationID : dataStore.keySet()) {
+            PriorityQueue<WeatherData> queue = dataStore.get(stationID);
+
+            // Using removeIf() to filter out stale WeatherData entries by senderID
+            queue.removeIf(weatherData -> staleSenderIds.contains(weatherData.getSenderID()));
+
+            // Optional: if a queue becomes empty after cleanup, remove the stationID entry itself
+            if (queue.isEmpty()) {
+                dataStore.remove(stationID);
+                System.out.println("Removed empty queue for stationID: " + stationID);
+            }
+        }
     }
 
     /**
@@ -238,7 +274,6 @@ public class AggregationServer {
 
         // No data available matching the Lamport time condition
         return targetData.map(weatherData -> formatHttpResponse("200 OK", null, weatherData.getData().toString())).orElseGet(() -> formatHttpResponse("204 No Content", null, null));
-
     }
 
     /**
@@ -342,6 +377,4 @@ public class AggregationServer {
     }
 
     // TODO: Implement methods to handle file management
-
-    // TODO: Implement methods to remove stale entries
 }
