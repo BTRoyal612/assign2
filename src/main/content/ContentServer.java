@@ -13,7 +13,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class ContentServer {
-    private final String serverID;
+    private final String senderID;
     private LamportClock lamportClock = new LamportClock();
     private JSONObject weatherData;
     private ScheduledExecutorService dataUploadScheduler = Executors.newScheduledThreadPool(1);
@@ -25,7 +25,7 @@ public class ContentServer {
      * @param networkHandler The network handler to manage server-server communication.
      */
     public ContentServer(NetworkHandler networkHandler) {
-        this.serverID = UUID.randomUUID().toString();
+        this.senderID = UUID.randomUUID().toString();
         this.networkHandler = networkHandler;
     }
 
@@ -109,7 +109,7 @@ public class ContentServer {
 
                 String putRequest = "PUT /uploadData HTTP/1.1\r\n" +
                         "Host: " + serverName + "\r\n" +
-                        "ServerID: " + serverID + "\r\n" +
+                        "SenderID: " + senderID + "\r\n" +
                         "LamportClock: " + lamportClock.send() + "\r\n" +
                         "Content-Type: application/json\r\n" +
                         "Content-Length: " + jsonData.toString().length() + "\r\n" +

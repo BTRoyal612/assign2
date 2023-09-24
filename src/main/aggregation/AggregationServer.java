@@ -1,5 +1,6 @@
 package main.aggregation;
 
+import main.common.JSONHandler;
 import main.common.WeatherData;
 import org.json.JSONObject;
 import main.common.LamportClock;
@@ -10,6 +11,8 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.*;
+
+import org.json.JSONException;
 
 public class AggregationServer {
     private static final int DEFAULT_PORT = 4567;
@@ -219,13 +222,13 @@ public class AggregationServer {
             if (optionalStationId.isPresent()) {
                 stationId = optionalStationId.get();
             } else {
-                return formatHttpResponse("404 Not Found", "Null StationID", null);
+                return formatHttpResponse("204 No Content", null, null);
             }
         }
 
         PriorityQueue<WeatherData> weatherDataQueue = dataStore.get(stationId);
         if (weatherDataQueue == null || weatherDataQueue.isEmpty()) {
-            return formatHttpResponse("404 Not Found", null, null); // No data available for the given station ID
+            return formatHttpResponse("204 No Content", null, null); // No data available for the given station ID
         }
 
         // Find the first WeatherData with Lamport time less than the request's Lamport time
@@ -233,11 +236,9 @@ public class AggregationServer {
                 .filter(data -> data.getLamportTime() <= lamportTime)
                 .findFirst();
 
-        if (!targetData.isPresent()) {
-            return formatHttpResponse("404 Not Found", "No Valid Data", null); // No data available matching the Lamport time condition
-        }
+        // No data available matching the Lamport time condition
+        return targetData.map(weatherData -> formatHttpResponse("200 OK", null, weatherData.getData().toString())).orElseGet(() -> formatHttpResponse("204 No Content", null, null));
 
-        return formatHttpResponse("200 OK", null, targetData.get().getData().toString());
     }
 
     /**
@@ -251,24 +252,26 @@ public class AggregationServer {
         lamportClock.receive(lamportTime);
 
         // Extract the server ID
-        String serverId = headers.get("ServerID");
-        if (serverId == null || serverId.isEmpty()) {
-            return formatHttpResponse("400 Bad Request", "No ServerID", null); // Server ID is mandatory in PUT request
+        String senderID = headers.get("SenderID");
+        if (senderID == null || senderID.isEmpty()) {
+            return formatHttpResponse("400 Bad Request", "No SenderID", null); // Server ID is mandatory in PUT request
         }
 
         // Parse the content into a JSONObject
         JSONObject weatherDataJSON;
         try {
-            weatherDataJSON = new JSONObject(content);
-        } catch (Exception e) {
-            return formatHttpResponse("400 Bad Request", "Malformed JSON", null); // Malformed JSON data
+            weatherDataJSON = JSONHandler.parseJSONObject(content);
+        } catch (JSONException e) {
+            // Log the exact error message from JSONException for clearer debugging
+            System.err.println("JSON Parsing Error: " + e.getMessage());
+            return formatHttpResponse("500 Internal Server Error", "Malformed JSON", null);
         }
 
         // Use the new method to add weather data to the DataStore
         long currentTimestamp = System.currentTimeMillis();
-        Long lastTimestamp = timestampStore.put(serverId, currentTimestamp);
+        Long lastTimestamp = timestampStore.put(senderID, currentTimestamp);
 
-        if (addWeatherData(weatherDataJSON, lamportTime, serverId)) {
+        if (addWeatherData(weatherDataJSON, lamportTime, senderID)) {
             if (lastTimestamp == null || (currentTimestamp - lastTimestamp) > THRESHOLD) {
                 return formatHttpResponse("201 HTTP_CREATED", null, null);  // This is either the first request, or a "re-initial" after a long gap
             } else {
@@ -283,10 +286,10 @@ public class AggregationServer {
      * Adds weather data to the server's data store.
      * @param weatherDataJSON The JSON representation of the weather data.
      * @param lamportTime The Lamport timestamp associated with the data.
-     * @param serverId The identifier of the server sending the data.
+     * @param senderID The identifier of the server sending the data.
      * @return True if the data was added successfully, false otherwise.
      */
-    public boolean addWeatherData(JSONObject weatherDataJSON, int lamportTime, String serverId) {
+    public boolean addWeatherData(JSONObject weatherDataJSON, int lamportTime, String senderID) {
         // Extract station ID from the parsed JSON
         String stationId = weatherDataJSON.optString("id", null);
         if (stationId == null || stationId.isEmpty()) {
@@ -294,7 +297,7 @@ public class AggregationServer {
         }
 
         // Create a new WeatherData object
-        WeatherData newData = new WeatherData(weatherDataJSON, lamportTime, serverId);
+        WeatherData newData = new WeatherData(weatherDataJSON, lamportTime, senderID);
 
         // Add the new WeatherData object to the priority queue associated with the station ID
         dataStore.computeIfAbsent(stationId, k -> new PriorityQueue<>()).add(newData);
