@@ -120,7 +120,7 @@ public class ContentServer {
 
                 System.out.print(response);
 
-                if (response != null && (response.contains("200 OK") || response.contains("201 OK"))) {
+                if (response != null && (response.contains("200") || response.contains("201"))) {
                     lamportClock.send();
                     System.out.println("Data uploaded successfully.");
                 } else {

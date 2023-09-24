@@ -13,6 +13,7 @@ import java.util.concurrent.*;
 
 public class AggregationServer {
     private static final int DEFAULT_PORT = 4567;
+    private static final long THRESHOLD = 40000; // 45 seconds
     private volatile boolean shutdown = false;
     private Thread acceptThread;
     private NetworkHandler networkHandler;
@@ -197,7 +198,7 @@ public class AggregationServer {
         } else if ("PUT".equalsIgnoreCase(requestType)) {
             return handlePutRequest(headers, content);
         } else {
-            return "400 Bad Request";
+            return formatHttpResponse("400 Bad Request", null, null);
         }
     }
 
@@ -264,8 +265,15 @@ public class AggregationServer {
         }
 
         // Use the new method to add weather data to the DataStore
+        long currentTimestamp = System.currentTimeMillis();
+        Long lastTimestamp = timestampStore.put(serverId, currentTimestamp);
+
         if (addWeatherData(weatherDataJSON, lamportTime, serverId)) {
-            return formatHttpResponse("200 OK", null, null);
+            if (lastTimestamp == null || (currentTimestamp - lastTimestamp) > THRESHOLD) {
+                return formatHttpResponse("201 HTTP_CREATED", null, null);  // This is either the first request, or a "re-initial" after a long gap
+            } else {
+                return formatHttpResponse("200 OK", null, null);
+            }
         } else {
             return formatHttpResponse("400 Bad Request", null, null); // Failed to add data
         }
