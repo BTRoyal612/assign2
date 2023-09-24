@@ -11,16 +11,16 @@ import java.util.UUID;
 
 public class GETClient {
     private final NetworkHandler networkHandler;
-    private final String serverID;
+    private final String senderID;
     private LamportClock lamportClock = new LamportClock();
 
     /**
      * Constructor for GETClient.
-     * Initializes the client with the given NetworkHandler and a randomly generated serverID.
+     * Initializes the client with the given NetworkHandler and a randomly generated senderID.
      * @param networkHandler The network handler to manage client-server communication.
      */
     public GETClient(NetworkHandler networkHandler) {
-        this.serverID = UUID.randomUUID().toString();
+        this.senderID = UUID.randomUUID().toString();
         this.networkHandler = networkHandler;
     }
 
@@ -58,7 +58,6 @@ public class GETClient {
      */
     public void interpretResponse(JSONObject response) {
         if (response == null) {
-            System.out.println("Error: No response from server.");
             return;
         }
 
@@ -86,7 +85,7 @@ public class GETClient {
         int currentTime = lamportClock.send();
 
         String getRequest = "GET /weather.json HTTP/1.1\r\n" +
-                "ServerID: " + serverID + "\r\n" +
+                "SenderID: " + senderID + "\r\n" +
                 "LamportClock: " + currentTime + "\r\n" +
                 (stationID != null ? "StationID: " + stationID + "\r\n" : "") +
                 "\r\n";
@@ -98,6 +97,9 @@ public class GETClient {
 
             if (responseStr.contains("500")) {
                 System.out.println("Internal Server Error: The JSON data on the server might be in incorrect format.");
+                return null;
+            } else if (responseStr.contains("204")) {
+                System.out.println("Server response: No Content.");
                 return null;
             }
 

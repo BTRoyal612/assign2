@@ -1,5 +1,6 @@
 package main.common;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.HashMap;
@@ -93,12 +94,12 @@ public class JSONHandler {
         }
     }
 
-    public static JSONObject parseJSONObject(String jsonData) {
-        if (jsonData != null && !jsonData.isEmpty()) {
-            return new JSONObject(jsonData);
-        } else {
-            // Invalid JSON data provided
-            return null;
+    public static JSONObject parseJSONObject(String jsonData) throws JSONException {
+        if (jsonData == null || jsonData.trim().isEmpty()) {
+            throw new JSONException("Provided JSON data is null or empty");
         }
+
+        return new JSONObject(jsonData);
     }
+
 }
