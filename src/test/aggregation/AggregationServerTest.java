@@ -1,7 +1,8 @@
 package test.aggregation;
 
+import com.google.gson.JsonObject;
 import main.aggregation.AggregationServer;
-import org.json.JSONObject;
+import main.common.JSONHandler;
 import org.junit.jupiter.api.*;
 import test.network.StubNetworkHandler;
 
@@ -20,7 +21,7 @@ class AggregationServerTest {
     @Test
     void testHandleGetRequest() {
         // First, put weather data into the DataStore
-        JSONObject mockWeatherData = new JSONObject("{ \"id\" : \"IDS60901\" }");
+        JsonObject mockWeatherData = JSONHandler.parseJSONObject("{ \"id\" : \"IDS60901\" }");
         assertTrue(server.addWeatherData(mockWeatherData, 1, "Server1"));
 
         // Simulating GET request
@@ -42,7 +43,7 @@ class AggregationServerTest {
     @Test
     void testGetWithoutStationId() {
         // First, put weather data into the DataStore
-        JSONObject mockWeatherData = new JSONObject("{ \"id\" : \"IDS60901\" }");
+        JsonObject mockWeatherData = JSONHandler.parseJSONObject("{ \"id\" : \"IDS60901\" }");
         assertTrue(server.addWeatherData(mockWeatherData, 1, "Server1"));
 
         // Simulating GET request without specifying a station ID
@@ -71,20 +72,26 @@ class AggregationServerTest {
                 """;
         stubNetworkHandler.setSimulatedResponse(getRequest);
 
+        String expectedResponse = """
+                HTTP/1.1 204 No Content\r
+                LamportClock: 3\r
+                \r
+                """;
+
         // Run server logic for single request
         String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, getRequest, false));
 
         // Check if the server response indicates not found
-        assertEquals("404 Not Found", responseData);
+        assertEquals(expectedResponse, responseData);
     }
 
     @Test
-    void testHandlePutRequest() {
+    void testHandleFirstPutRequest() {
         // Simulating PUT request
         String putRequest = """
                 PUT /weather.json HTTP/1.1\r
                 User-Agent: ATOMClient/1/0\r
-                ServerID: 1\r
+                SenderID: 1\r
                 Content-Type: application/json\r
                 Content-Length: 235\r
                 \r
@@ -94,11 +101,17 @@ class AggregationServerTest {
                 }""";
         stubNetworkHandler.setSimulatedResponse(putRequest);
 
+        String expectedResponse = """
+                HTTP/1.1 201 HTTP_CREATED\r
+                LamportClock: 2\r
+                \r
+                """;
+
         // Run server logic for single request
         String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, putRequest, false));
 
         // Check if the server response is "200 OK"
-        assertEquals("200 OK", responseData);
+        assertEquals(expectedResponse, responseData);
     }
 
     @Test

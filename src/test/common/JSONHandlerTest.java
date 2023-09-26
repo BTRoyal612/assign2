@@ -1,13 +1,12 @@
 package test.common;
 
 import main.common.JSONHandler;
-import org.json.JSONObject;
+import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class JSONHandlerTest {
-
     @Test
     void testTextToJsonConversion() {
         try {
@@ -19,13 +18,13 @@ class JSONHandlerTest {
                     air_temp: 13.3
                     cloud: Partly cloudy""";
 
-            JSONObject result = JSONHandler.convertTextToJSON(content);
+            JsonObject result = JSONHandler.convertTextToJSON(content);
 
             // Assertions for the given fields.
-            assertEquals("IDS60901", result.getString("id"));
-            assertEquals("Adelaide (West Terrace / ngayirdapira)", result.getString("name"));
-            assertEquals(13.3, result.getDouble("air_temp"));
-            assertEquals("Partly cloudy", result.getString("cloud"));
+            assertEquals("IDS60901", result.get("id").getAsString());
+            assertEquals("Adelaide (West Terrace / ngayirdapira)", result.get("name").getAsString());
+            assertEquals("13.3", result.get("air_temp").getAsString());
+            assertEquals("Partly cloudy", result.get("cloud").getAsString());
 
         } catch (Exception e) {
             fail("Exception thrown during test: " + e.getMessage());
@@ -35,10 +34,10 @@ class JSONHandlerTest {
     @Test
     void testJSONToTextConversion() {
         try {
-            JSONObject sampleJSON = new JSONObject();
-            sampleJSON.put("id", "IDS60901");
-            sampleJSON.put("air_temp", 13.3);
-            sampleJSON.put("cloud", "Partly cloudy");
+            JsonObject sampleJSON = new JsonObject();
+            sampleJSON.addProperty("id", "IDS60901");
+            sampleJSON.addProperty("air_temp", 13.3);
+            sampleJSON.addProperty("cloud", "Partly cloudy");
 
             String result = JSONHandler.convertJSONToText(sampleJSON);
             assertTrue(result.contains("id: IDS60901"));
@@ -71,9 +70,9 @@ class JSONHandlerTest {
     public void testParseJSONObject() {
         // Test with valid JSON string
         String jsonString = "{\"key\":\"value\"}";
-        JSONObject jsonObject = JSONHandler.parseJSONObject(jsonString);
+        JsonObject jsonObject = JSONHandler.parseJSONObject(jsonString);
         assertTrue(jsonObject.has("key"));
-        assertEquals("value", jsonObject.getString("key"));
+        assertEquals("value", jsonObject.get("key").getAsString());
 
         // Test with empty string
         jsonString = "";
@@ -88,7 +87,7 @@ class JSONHandlerTest {
         try {
             jsonObject = JSONHandler.parseJSONObject(jsonString);
         } catch (Exception e) {
-            assertTrue(e instanceof org.json.JSONException);
+            assertTrue(e instanceof com.google.gson.JsonParseException);
         }
     }
 }

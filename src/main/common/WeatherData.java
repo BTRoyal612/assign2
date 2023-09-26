@@ -1,19 +1,19 @@
 package main.common;
 
-import org.json.JSONObject;
+import com.google.gson.JsonObject;
 
 public class WeatherData implements Comparable<WeatherData> {
-    private JSONObject data;   // Weather data
+    private JsonObject data;   // Weather data
     private int lamportTime;   // Lamport clock time
     private String senderID;   // ID of the server from which the data is received
 
-    public WeatherData(JSONObject data, int lamportTime, String serverId) {
+    public WeatherData(JsonObject data, int lamportTime, String serverId) {
         this.data = data;
         this.lamportTime = lamportTime;
         this.senderID = serverId;
     }
 
-    public JSONObject getData() {
+    public JsonObject getData() {
         return data;
     }
 

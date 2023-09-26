@@ -62,14 +62,15 @@ public class ContentServerTest {
         String expectedData = """
                 PUT /uploadData HTTP/1.1\r
                 Host: testServer\r
-                ServerID: 444c3c63-d0da-4a2f-bfc7-896825043e69\r
+                SenderID: 444c3c63-d0da-4a2f-bfc7-896825043e69\r
+                LamportClock: 1\r
                 Content-Type: application/json\r
-                Content-Length: 116\r
-                \r
-                {"air_temp":"13.3","cloud":"Partly cloudy","local_date_time_full":"20230715160000","id":"IDS60901","LamportClock":1}""";
+                Content-Length: 99\r
+                \r                                                                                                  
+                {"air_temp":"13.3","cloud":"Partly cloudy","local_date_time_full":"20230715160000","id":"IDS60901"}""";
 
         // Regular expression pattern to match everything before and after the ServerID field
-        String regex = "(.*?)ServerID: .*?\r\n(.*?$)";
+        String regex = "(.*?)SenderID: .*?\r\n(.*?$)";
         Pattern pattern = Pattern.compile(regex, Pattern.DOTALL); // Pattern.DOTALL allows the dot to match newline characters
 
         String actualData = stubNetworkHandler.getLastSentData();
@@ -88,7 +89,7 @@ public class ContentServerTest {
             String processedActualData = actualBeforeServerID + actualAfterServerID;
 
             // Assert
-            assertEquals(processedExpectedData, processedActualData, "Should send correct PUT request excluding ServerID");
+            assertEquals(processedExpectedData, processedActualData, "Should send correct PUT request excluding SenderID");
         } else {
             fail("Could not process the expected or actual data properly");
         }

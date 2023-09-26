@@ -2,12 +2,11 @@ package main.client;
 
 import main.network.NetworkHandler;
 import main.network.SocketNetworkHandler;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonObject;
 import main.common.LamportClock;  // Importing the LamportClock class
 import main.common.JSONHandler;
 import java.util.UUID;
-
 
 public class GETClient {
     private final NetworkHandler networkHandler;
@@ -43,7 +42,7 @@ public class GETClient {
 
         NetworkHandler networkHandler = new SocketNetworkHandler();
         GETClient client = new GETClient(networkHandler);
-        JSONObject response = client.getData(serverName, portNumber, stationID);
+        JsonObject response = client.getData(serverName, portNumber, stationID);
 
         // Interpret and print the response
         client.interpretResponse(response);
@@ -56,7 +55,7 @@ public class GETClient {
      * Converts the response JSON to text and prints it to the console.
      * @param response The JSONObject representing the server's response.
      */
-    public void interpretResponse(JSONObject response) {
+    public void interpretResponse(JsonObject response) {
         if (response == null) {
             return;
         }
@@ -81,7 +80,7 @@ public class GETClient {
      * @param stationID Optional parameter specifying a specific stationID for data retrieval. Can be null.
      * @return A JSONObject containing the server's response or null in case of an error.
      */
-    public JSONObject getData(String serverName, int portNumber, String stationID) {
+    public JsonObject getData(String serverName, int portNumber, String stationID) {
         int currentTime = lamportClock.send();
 
         String getRequest = "GET /weather.json HTTP/1.1\r\n" +
@@ -103,15 +102,8 @@ public class GETClient {
                 return null;
             }
 
-            JSONObject jsonObject = new JSONObject(JSONHandler.extractJSONContent(responseStr));
-
-            if (jsonObject.has("LamportClock")) {
-                int receivedLamportClock = jsonObject.getInt("LamportClock");
-                lamportClock.receive(receivedLamportClock);
-            }
-
-            return jsonObject;
-        } catch (JSONException e) {
+            return JSONHandler.parseJSONObject(JSONHandler.extractJSONContent(responseStr));
+        } catch (JsonParseException e) {
             System.out.println("Error parsing the server's JSON response: " + e.getMessage());
             e.printStackTrace();
         } catch (Exception e) {
