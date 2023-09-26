@@ -1,6 +1,6 @@
 package main.content;
 
-import org.json.JSONObject;
+import com.google.gson.JsonObject;
 import main.common.LamportClock;
 import main.common.JSONHandler;
 import main.network.NetworkHandler;
@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 public class ContentServer {
     private final String senderID;
     private LamportClock lamportClock = new LamportClock();
-    private JSONObject weatherData;
+    private JsonObject weatherData;
     private ScheduledExecutorService dataUploadScheduler = Executors.newScheduledThreadPool(1);
     private final NetworkHandler networkHandler;
 
@@ -75,7 +75,7 @@ public class ContentServer {
      * Retrieves the weather data stored in the server.
      * @return A JSONObject containing the weather data.
      */
-    public JSONObject getWeatherData() {
+    public JsonObject getWeatherData() {
         return weatherData;
     }
 
@@ -105,20 +105,18 @@ public class ContentServer {
     public void uploadWeatherData(String serverName, int portNumber) {
         dataUploadScheduler.scheduleAtFixedRate(() -> {
             try {
-                JSONObject jsonData = new JSONObject(weatherData.toString()); // assuming this directly gives a JSONObject
-
                 String putRequest = "PUT /uploadData HTTP/1.1\r\n" +
                         "Host: " + serverName + "\r\n" +
                         "SenderID: " + senderID + "\r\n" +
                         "LamportClock: " + lamportClock.send() + "\r\n" +
                         "Content-Type: application/json\r\n" +
-                        "Content-Length: " + jsonData.toString().length() + "\r\n" +
+                        "Content-Length: " + weatherData.toString().length() + "\r\n" +
                         "\r\n" +
-                        jsonData;
+                        weatherData;
 
                 String response = networkHandler.sendAndReceiveData(serverName, portNumber, putRequest, true);
 
-                System.out.print(response);
+                System.out.println(response);
 
                 if (response != null && (response.contains("200") || response.contains("201"))) {
                     lamportClock.send();

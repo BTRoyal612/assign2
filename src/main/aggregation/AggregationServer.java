@@ -2,18 +2,23 @@ package main.aggregation;
 
 import main.common.JSONHandler;
 import main.common.WeatherData;
-import org.json.JSONObject;
+import com.google.gson.*;
 import main.common.LamportClock;
 import main.network.NetworkHandler;
 import main.network.SocketNetworkHandler;
+import com.google.gson.reflect.TypeToken;
+
+import java.io.File;
+import java.lang.reflect.Type;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
-
-import org.json.JSONException;
 
 public class AggregationServer {
     private static final int DEFAULT_PORT = 4567;
@@ -34,6 +39,12 @@ public class AggregationServer {
 
     // To store timestamps for each entry
     private Map<String, Long> timestampStore = new ConcurrentHashMap<>();
+
+    private static final String DATA_FILE_PATH = "src" + File.separator + "data" + File.separator + "dataStore.json";
+    private static final String BACKUP_FILE_PATH = "src" + File.separator + "data" + File.separator + "dataStore_backup.json";
+    private static final String TIMESTAMP_FILE_PATH = "src" + File.separator + "data" + File.separator + "timestampStore.json";
+    private static final String TIMESTAMP_BACKUP_FILE_PATH = "src" + File.separator + "data" + File.separator + "timestampStore_backup.json";
+    private ScheduledExecutorService fileSaveScheduler;
 
     /**
      * Main method to start the AggregationServer.
@@ -65,6 +76,11 @@ public class AggregationServer {
         System.out.println("server start");
         networkHandler.startServer(portNumber); // Starting the server socket
 
+        // Schedule periodic saving of data
+        fileSaveScheduler = Executors.newScheduledThreadPool(1);
+        fileSaveScheduler.scheduleAtFixedRate(this::saveDataToFile, 0, 60, TimeUnit.SECONDS); // for example, every minute
+        loadDataFromFile();  // recover data at startup
+
         // Initialize cleanup task
         cleanupScheduler = Executors.newScheduledThreadPool(1);
         cleanupScheduler.scheduleAtFixedRate(this::cleanupStaleEntries, 0, 21, TimeUnit.SECONDS);
@@ -94,6 +110,49 @@ public class AggregationServer {
             }
         });
         monitorThread.start();
+    }
+
+    // Atomic File Save method
+    private synchronized void saveDataToFile() {
+        saveObjectToFile(dataStore, DATA_FILE_PATH, BACKUP_FILE_PATH);
+        saveObjectToFile(timestampStore, TIMESTAMP_FILE_PATH, TIMESTAMP_BACKUP_FILE_PATH);
+    }
+
+    private synchronized <T> void saveObjectToFile(T object, String filePath, String backupFilePath) {
+        try {
+            // Convert the object to JSON
+            String jsonData = JSONHandler.serializeObject(object);
+
+            // Save to backup file
+            Files.write(Paths.get(backupFilePath), jsonData.getBytes());
+
+            // Atomically move backup file to main file
+            Files.move(Paths.get(backupFilePath), Paths.get(filePath), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadDataFromFile() {
+        dataStore = loadObjectFromFile(DATA_FILE_PATH, BACKUP_FILE_PATH, new TypeToken<ConcurrentHashMap<String, PriorityQueue<WeatherData>>>(){}.getType());
+        timestampStore = loadObjectFromFile(TIMESTAMP_FILE_PATH, TIMESTAMP_BACKUP_FILE_PATH, new TypeToken<ConcurrentHashMap<String, Long>>(){}.getType());
+    }
+
+    private <T> T loadObjectFromFile(String filePath, String backupFilePath, Type type) {
+        try {
+            String jsonData = new String(Files.readAllBytes(Paths.get(filePath)));
+            return JSONHandler.deserializeObject(jsonData, type);
+        } catch (IOException e) {
+            // If there's an error, try to load from the backup file
+            try {
+                String backupData = new String(Files.readAllBytes(Paths.get(backupFilePath)));
+                return JSONHandler.deserializeObject(backupData, type);
+            } catch (IOException ex) {
+                ex.printStackTrace();
+                return null;
+            }
+        }
     }
 
     private void cleanupStaleEntries() {
@@ -293,10 +352,10 @@ public class AggregationServer {
         }
 
         // Parse the content into a JSONObject
-        JSONObject weatherDataJSON;
+        JsonObject weatherDataJSON;
         try {
             weatherDataJSON = JSONHandler.parseJSONObject(content);
-        } catch (JSONException e) {
+        } catch (JsonParseException e) {
             // Log the exact error message from JSONException for clearer debugging
             System.err.println("JSON Parsing Error: " + e.getMessage());
             return formatHttpResponse("500 Internal Server Error", "Malformed JSON", null);
@@ -324,9 +383,15 @@ public class AggregationServer {
      * @param senderID The identifier of the server sending the data.
      * @return True if the data was added successfully, false otherwise.
      */
-    public boolean addWeatherData(JSONObject weatherDataJSON, int lamportTime, String senderID) {
+    public boolean addWeatherData(JsonObject weatherDataJSON, int lamportTime, String senderID) {
         // Extract station ID from the parsed JSON
-        String stationId = weatherDataJSON.optString("id", null);
+        String stationId;
+        if (weatherDataJSON.has("id")) {
+            stationId = weatherDataJSON.get("id").getAsString();
+        } else {
+            stationId = null;
+        }
+
         if (stationId == null || stationId.isEmpty()) {
             return false;  // Station ID missing in the JSON content
         }
@@ -371,6 +436,28 @@ public class AggregationServer {
         // Interrupt the acceptThread to break the potential blocking call
         if(acceptThread != null) {
             acceptThread.interrupt();
+        }
+
+        // Shutdown fileSaveScheduler gracefully
+        fileSaveScheduler.shutdown();
+        try {
+            if (!fileSaveScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                fileSaveScheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            fileSaveScheduler.shutdownNow();
+        }
+
+        if (cleanupScheduler != null) {
+            cleanupScheduler.shutdown();
+            try {
+                if (!cleanupScheduler.awaitTermination(60, TimeUnit.SECONDS)) {
+                    cleanupScheduler.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                cleanupScheduler.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
         }
 
         System.out.println("Shutting down server...");

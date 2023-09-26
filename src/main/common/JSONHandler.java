@@ -1,17 +1,18 @@
 package main.common;
 
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.google.gson.*;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.lang.reflect.Type;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
 
 public class JSONHandler {
+    private static final Gson gson = new Gson();
 
     public static String readFile(String filePath) throws Exception {
         if (filePath == null) {
@@ -32,7 +33,7 @@ public class JSONHandler {
         return content.toString();
     }
 
-    public static JSONObject convertTextToJSON(String inputText) throws Exception {
+    public static JsonObject convertTextToJSON(String inputText) throws Exception {
         if (inputText == null) {
             throw new Exception("Input text is null.");
         }
@@ -53,27 +54,25 @@ public class JSONHandler {
             dataMap.put(key, value);
         }
 
-        return new JSONObject(dataMap);
+        return gson.toJsonTree(dataMap).getAsJsonObject();
     }
 
-    public static String convertJSONToText(JSONObject jsonObject) throws Exception {
+    public static String convertJSONToText(JsonObject jsonObject) throws Exception {
         if (jsonObject == null) {
             throw new Exception("Error: jsonObject is null.");
         }
 
         StringBuilder stringBuilder = new StringBuilder();
 
-        Iterator<String> keys = jsonObject.keys();
-        while (keys.hasNext()) {
-            String key = keys.next();
-            Object value = jsonObject.get(key);  // Get value as Object
+        for (Entry<String, JsonElement> entry : jsonObject.entrySet()) {
+            String key = entry.getKey();
+            JsonElement valueElement = entry.getValue();
 
-            // Convert the value object to string appropriately
             String valueStr;
-            if (value instanceof Double || value instanceof Integer) {
-                valueStr = String.valueOf(value);  // Convert numeric values directly
+            if (valueElement.isJsonPrimitive() && (valueElement.getAsJsonPrimitive().isNumber() || valueElement.getAsJsonPrimitive().isString())) {
+                valueStr = valueElement.getAsString();
             } else {
-                valueStr = jsonObject.getString(key);  // For other types, use getString
+                valueStr = gson.toJson(valueElement);  // Serialize to String for other types
             }
 
             stringBuilder.append(key).append(": ").append(valueStr).append("\n");
@@ -94,12 +93,21 @@ public class JSONHandler {
         }
     }
 
-    public static JSONObject parseJSONObject(String jsonData) throws JSONException {
+    public static JsonObject parseJSONObject(String jsonData) throws JsonParseException {
         if (jsonData == null || jsonData.trim().isEmpty()) {
-            throw new JSONException("Provided JSON data is null or empty");
+            return null;
         }
 
-        return new JSONObject(jsonData);
+        return gson.fromJson(jsonData, JsonObject.class);
     }
 
+    // Serialize an object to JSON
+    public static <T> String serializeObject(T object) {
+        return gson.toJson(object);
+    }
+
+    // Deserialize a JSON string to an object
+    public static <T> T deserializeObject(String jsonString, Type type) throws JsonSyntaxException {
+        return gson.fromJson(jsonString, type);
+    }
 }

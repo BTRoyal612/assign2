@@ -3,7 +3,7 @@ JAVA = java
 JAVAC = javac
 LIB = lib
 SRC = src
-CP = -cp $(LIB)/json-20230227.jar:$(SRC)/
+CP = -cp $(LIB)/gson-2.10.1.jar:$(SRC)/
 CPTEST = -cp $(LIB)/*:$(SRC)/
 
 MAIN_CLASSES = $(patsubst %.java,%.class,$(wildcard $(SRC)/main/**/*.java))
