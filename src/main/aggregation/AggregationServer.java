@@ -27,19 +27,14 @@ public class AggregationServer {
     private volatile boolean shutdown = false;
     private Thread acceptThread;
     private NetworkHandler networkHandler;
+    private DataStoreService dataStoreService;
 
     private ScheduledExecutorService cleanupScheduler;
 
     // Lamport clock for the server
     private LamportClock lamportClock = new LamportClock();
 
-    // To store JSON entries along with their sources
-    private Map<String, PriorityQueue<WeatherData>> dataStore = new ConcurrentHashMap<>();
-
     private LinkedBlockingQueue<Socket> requestQueue = new LinkedBlockingQueue<>();
-
-    // To store timestamps for each entry
-    private Map<String, Long> timestampStore = new ConcurrentHashMap<>();
 
     private static final String DATA_FILE_PATH = "src" + File.separator + "data" + File.separator + "dataStore.json";
     private static final String BACKUP_FILE_PATH = "src" + File.separator + "data" + File.separator + "dataStore_backup.json";
@@ -67,6 +62,7 @@ public class AggregationServer {
      */
     public AggregationServer(NetworkHandler networkHandler) {
         this.networkHandler = networkHandler;
+        this.dataStoreService = new DataStoreService();
     }
 
     /**
@@ -115,8 +111,8 @@ public class AggregationServer {
 
     // Atomic File Save method
     private synchronized void saveDataToFile() {
-        saveObjectToFile(dataStore, DATA_FILE_PATH, BACKUP_FILE_PATH);
-        saveObjectToFile(timestampStore, TIMESTAMP_FILE_PATH, TIMESTAMP_BACKUP_FILE_PATH);
+        saveObjectToFile(dataStoreService.getDataMap(), DATA_FILE_PATH, BACKUP_FILE_PATH);
+        saveObjectToFile(dataStoreService.getTimestampMap(), TIMESTAMP_FILE_PATH, TIMESTAMP_BACKUP_FILE_PATH);
     }
 
     private synchronized <T> void saveObjectToFile(T object, String filePath, String backupFilePath) {
@@ -136,8 +132,15 @@ public class AggregationServer {
     }
 
     private void loadDataFromFile() {
-        dataStore = loadObjectFromFile(DATA_FILE_PATH, BACKUP_FILE_PATH, new TypeToken<ConcurrentHashMap<String, PriorityQueue<WeatherData>>>(){}.getType());
-        timestampStore = loadObjectFromFile(TIMESTAMP_FILE_PATH, TIMESTAMP_BACKUP_FILE_PATH, new TypeToken<ConcurrentHashMap<String, Long>>(){}.getType());
+        Map<String, PriorityQueue<WeatherData>> loadedDataStore =
+                loadObjectFromFile(DATA_FILE_PATH, BACKUP_FILE_PATH, new TypeToken<ConcurrentHashMap<String, PriorityQueue<WeatherData>>>(){}.getType());
+
+        Map<String, Long> loadedTimestampStore =
+                loadObjectFromFile(TIMESTAMP_FILE_PATH, TIMESTAMP_BACKUP_FILE_PATH, new TypeToken<ConcurrentHashMap<String, Long>>(){}.getType());
+
+        // Set loaded data to DataStoreService
+        dataStoreService.setDataMap(loadedDataStore);
+        dataStoreService.setTimestampMap(loadedTimestampStore);
     }
 
     private <T> T loadObjectFromFile(String filePath, String backupFilePath, Type type) {
@@ -157,41 +160,45 @@ public class AggregationServer {
     }
 
     private void cleanupStaleEntries() {
+        System.out.println("Before Cleanup:");
+        printDataStoreAndTimestamps();
         long currentTime = System.currentTimeMillis();
 
         // Identify stale server IDs
-        Set<String> staleSenderIds = timestampStore.entrySet().stream()
-                .filter(entry -> currentTime - entry.getValue() > THRESHOLD)
-                .map(Map.Entry::getKey)
+        Set<String> staleSenderIds = dataStoreService.getAllTimestampKeys().stream()
+                .filter(entry -> currentTime - dataStoreService.getTimestamp(entry) > THRESHOLD)
                 .collect(Collectors.toSet());
 
         // Remove stale server IDs from timestampStore
-        timestampStore.keySet().removeAll(staleSenderIds);
-
-        System.out.println("\nBefore Cleanup: " + dataStore);
+        staleSenderIds.forEach(dataStoreService::removeTimestampKey);
 
         // If the timestampStore is empty, clear the entire dataStore
-        if (timestampStore.isEmpty()) {
-            dataStore.clear();
-            System.out.println("Cleared dataStore due to empty timestampStore");
-            return;  // No further processing needed
+        if (dataStoreService.getAllTimestampKeys().isEmpty()) {
+            dataStoreService.getAllDataKeys().forEach(dataStoreService::removeDataKey);
+            return;
         }
 
         // Remove data entries associated with stale server IDs
-        for (String stationID : dataStore.keySet()) {
-            PriorityQueue<WeatherData> queue = dataStore.get(stationID);
-
-            // Using removeIf() to filter out stale WeatherData entries by senderID
+        for (String stationID : dataStoreService.getAllDataKeys()) {
+            PriorityQueue<WeatherData> queue = dataStoreService.getData(stationID);
             queue.removeIf(weatherData -> staleSenderIds.contains(weatherData.getSenderID()));
 
-            // Optional: if a queue becomes empty after cleanup, remove the stationID entry itself
             if (queue.isEmpty()) {
-                dataStore.remove(stationID);
-                System.out.println("Removed empty queue for stationID: " + stationID);
+                dataStoreService.removeDataKey(stationID);
             }
         }
+
+        System.out.println("After Cleanup:");
+        printDataStoreAndTimestamps();
     }
 
+    private void printDataStoreAndTimestamps() {
+        System.out.println("\nDataStore:");
+        System.out.println(dataStoreService.getDataMap());
+
+        System.out.println("\nTimestampStore:");
+        System.out.println(dataStoreService.getTimestampMap());
+    }
 
     /**
      * Initializes a thread to continuously accept incoming client connections and add them to a request queue.
@@ -318,109 +325,135 @@ public class AggregationServer {
 
     /**
      * Processes a GET request and returns an appropriate response.
+     *
      * @param headers A map containing request headers.
      * @param content The content/body of the request.
      * @return A string representing the server's response.
      */
     public String handleGetRequest(Map<String, String> headers, String content) {
+        int lamportTime = getLamportTimeFromHeaders(headers);
+
+        // Retrieve station ID from headers or use default if not provided.
+        String stationId = getStationIdFromHeadersOrDefault(headers);
+        if (stationId == null) {
+            return formatHttpResponse("204 No Content", null, null);
+        }
+
+        // Get weather data for the specified station ID.
+        PriorityQueue<WeatherData> weatherDataQueue = dataStoreService.getData(stationId);
+        if (isWeatherDataQueueEmpty(weatherDataQueue)) {
+            return formatHttpResponse("204 No Content", null, null);
+        }
+
+        // Retrieve the first WeatherData with a Lamport time less than or equal to the request's Lamport time.
+        Optional<WeatherData> targetData = getWeatherDataForLamportTime(weatherDataQueue, lamportTime);
+
+        return targetData
+                .map(weatherData -> formatHttpResponse("200 OK", null, weatherData.getData().toString()))
+                .orElse(formatHttpResponse("204 No Content", null, null));
+    }
+
+    private int getLamportTimeFromHeaders(Map<String, String> headers) {
         int lamportTime = Integer.parseInt(headers.getOrDefault("LamportClock", "-1"));
         lamportClock.receive(lamportTime);
-        lamportTime = lamportClock.getTime();
+        return lamportClock.getTime();
+    }
 
+    private String getStationIdFromHeadersOrDefault(Map<String, String> headers) {
         String stationId = headers.get("StationID");
-        if (stationId == null || stationId.isEmpty()) {
-            // If no station ID is provided, get the first station's data from the datastore
-            Optional<String> optionalStationId = dataStore.keySet().stream().findFirst();
-            if (optionalStationId.isPresent()) {
-                stationId = optionalStationId.get();
-            } else {
-                return formatHttpResponse("204 No Content", null, null);
-            }
+        if (stationId != null && !stationId.isEmpty()) {
+            return stationId;
         }
+        return dataStoreService.getAllDataKeys().stream().findFirst().orElse(null);
+    }
 
-        PriorityQueue<WeatherData> weatherDataQueue = dataStore.get(stationId);
-        if (weatherDataQueue == null || weatherDataQueue.isEmpty()) {
-            return formatHttpResponse("204 No Content", null, null); // No data available for the given station ID
-        }
+    private boolean isWeatherDataQueueEmpty(PriorityQueue<WeatherData> queue) {
+        return queue == null || queue.isEmpty();
+    }
 
-        // Find the first WeatherData with Lamport time less than the request's Lamport time
-        int finalLamportTime = lamportTime;
-        Optional<WeatherData> targetData = weatherDataQueue.stream()
-                .filter(data -> data.getLamportTime() <= finalLamportTime)
+    private Optional<WeatherData> getWeatherDataForLamportTime(PriorityQueue<WeatherData> queue, int lamportTime) {
+        return queue.stream()
+                .filter(data -> data.getLamportTime() <= lamportTime)
                 .findFirst();
-
-        // No data available matching the Lamport time condition
-        return targetData.map(weatherData -> formatHttpResponse("200 OK", null, weatherData.getData().toString())).orElseGet(() -> formatHttpResponse("204 No Content", null, null));
     }
 
     /**
      * Processes a PUT request and returns an appropriate response.
+     *
      * @param headers A map containing request headers.
      * @param content The content/body of the request.
      * @return A string representing the server's response.
      */
     private String handlePutRequest(Map<String, String> headers, String content) {
-        int lamportTime = Integer.parseInt(headers.getOrDefault("LamportClock", "-1"));
-        lamportClock.receive(lamportTime);
+        int lamportTime = getLamportTimeFromHeaders(headers);
 
-        // Extract the server ID
         String senderID = headers.get("SenderID");
-        if (senderID == null || senderID.isEmpty()) {
-            return formatHttpResponse("400 Bad Request", "No SenderID", null); // Server ID is mandatory in PUT request
-        }
-
-        // Parse the content into a JSONObject
-        JsonObject weatherDataJSON;
-        try {
-            weatherDataJSON = JSONHandler.parseJSONObject(content);
-        } catch (JsonParseException e) {
-            // Log the exact error message from JSONException for clearer debugging
-            System.err.println("JSON Parsing Error: " + e.getMessage());
-            return formatHttpResponse("500 Internal Server Error", "Malformed JSON", null);
-        }
-
-        // Use the new method to add weather data to the DataStore
-        long currentTimestamp = System.currentTimeMillis();
-        Long lastTimestamp = timestampStore.put(senderID, currentTimestamp);
-
-        if (addWeatherData(weatherDataJSON, lamportTime, senderID)) {
-            if (lastTimestamp == null || (currentTimestamp - lastTimestamp) > THRESHOLD) {
-                return formatHttpResponse("201 HTTP_CREATED", null, null);  // This is either the first request, or a "re-initial" after a long gap
-            } else {
-                return formatHttpResponse("200 OK", null, null);
-            }
+        if (isValidSender(senderID) && processWeatherData(content, lamportTime, senderID)) {
+            return generateResponseBasedOnTimestamp(senderID);
         } else {
-            return formatHttpResponse("400 Bad Request", null, null); // Failed to add data
+            return formatHttpResponse("400 Bad Request", null, null);
         }
+    }
+
+    private boolean isValidSender(String senderID) {
+        return senderID != null && !senderID.isEmpty();
+    }
+
+    private boolean processWeatherData(String content, int lamportTime, String senderID) {
+        try {
+            JsonObject weatherDataJSON = JSONHandler.parseJSONObject(content);
+            WeatherData newWeatherData = new WeatherData(weatherDataJSON, lamportTime, senderID);
+            dataStoreService.putData(senderID, newWeatherData);
+            return true;
+        } catch (JsonParseException e) {
+            System.err.println("JSON Parsing Error: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private String generateResponseBasedOnTimestamp(String senderID) {
+        long currentTimestamp = System.currentTimeMillis();
+        Long lastTimestamp = dataStoreService.getTimestamp(senderID);
+
+        // Update the timestamp for the senderID in DataStoreService
+        dataStoreService.putTimestamp(senderID, currentTimestamp);
+
+        if (isNewOrDelayedRequest(lastTimestamp, currentTimestamp)) {
+            return formatHttpResponse("201 HTTP_CREATED", null, null);
+        } else {
+            return formatHttpResponse("200 OK", null, null);
+        }
+    }
+
+    private boolean isNewOrDelayedRequest(Long lastTimestamp, long currentTimestamp) {
+        return lastTimestamp == null || (currentTimestamp - lastTimestamp) > THRESHOLD;
     }
 
     /**
      * Adds weather data to the server's data store.
+     *
      * @param weatherDataJSON The JSON representation of the weather data.
      * @param lamportTime The Lamport timestamp associated with the data.
      * @param senderID The identifier of the server sending the data.
      * @return True if the data was added successfully, false otherwise.
      */
     public boolean addWeatherData(JsonObject weatherDataJSON, int lamportTime, String senderID) {
-        // Extract station ID from the parsed JSON
-        String stationId;
-        if (weatherDataJSON.has("id")) {
-            stationId = weatherDataJSON.get("id").getAsString();
-        } else {
-            stationId = null;
+        String stationId = extractStationId(weatherDataJSON);
+
+        if (!isValidStation(stationId)) {
+            return false;
         }
 
-        if (stationId == null || stationId.isEmpty()) {
-            return false;  // Station ID missing in the JSON content
-        }
-
-        // Create a new WeatherData object
-        WeatherData newData = new WeatherData(weatherDataJSON, lamportTime, senderID);
-
-        // Add the new WeatherData object to the priority queue associated with the station ID
-        dataStore.computeIfAbsent(stationId, k -> new PriorityQueue<>()).add(newData);
-
+        dataStoreService.putData(stationId, new WeatherData(weatherDataJSON, lamportTime, senderID));
         return true;
+    }
+
+    private String extractStationId(JsonObject weatherDataJSON) {
+        return weatherDataJSON.has("id") ? weatherDataJSON.get("id").getAsString() : null;
+    }
+
+    private boolean isValidStation(String stationId) {
+        return stationId != null && !stationId.isEmpty();
     }
 
     private String formatHttpResponse(String status, String message, String jsonData) {
