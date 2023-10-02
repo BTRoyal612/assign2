@@ -93,7 +93,6 @@ public class SocketNetworkHandler implements NetworkHandler {
     @Override
     public String sendAndReceiveData(String serverName, int portNumber, String data, boolean isContentServer) {
         try {
-            initializeSocket(serverName, portNumber);
             out.println(data);  // Sending the request data
 
             StringBuilder responseBuilder = new StringBuilder();
@@ -134,15 +133,29 @@ public class SocketNetworkHandler implements NetworkHandler {
         }
     }
 
-    private void initializeSocket(String serverName, int portNumber) throws IOException {
-        closeClient();  // Close any existing open resources
-
+    @Override
+    public int initializeSocket(String serverName, int portNumber) {
         try {
             clientSocket = new Socket(serverName, portNumber);
             out = new PrintWriter(clientSocket.getOutputStream(), true);
             in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+
+            // Parse the Lamport clock value sent by the server immediately after the connection
+            String clockLine = in.readLine();
+
+            if (clockLine == null) {
+                throw new IOException("Server closed the connection without sending LamportClock.");
+            }
+
+            if (clockLine.startsWith("LamportClock: ")) {
+                return Integer.parseInt(clockLine.split(":")[1].trim());
+            } else {
+                throw new IOException("Expected LamportClock value from server but received: " + clockLine);
+            }
         } catch (IOException e) {
             e.printStackTrace();
+            closeClient(); // Close any resources if there's an error.
+            throw new RuntimeException("Error initializing socket", e);
         }
     }
 

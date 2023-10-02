@@ -81,11 +81,15 @@ public class GETClient {
      * @return A JSONObject containing the server's response or null in case of an error.
      */
     public JsonObject getData(String serverName, int portNumber, String stationID) {
-        int currentTime = lamportClock.send();
+        // Step 1: Initialize the socket and get the Lamport clock value from the server
+        int serverLamportClock = networkHandler.initializeSocket(serverName, portNumber);
+
+        // Step 2: Set your Lamport clock using the value from the server
+        lamportClock.setClock(serverLamportClock);
 
         String getRequest = "GET /weather.json HTTP/1.1\r\n" +
                 "SenderID: " + senderID + "\r\n" +
-                "LamportClock: " + currentTime + "\r\n" +
+                "LamportClock: " + lamportClock.send() + "\r\n" +
                 (stationID != null ? "StationID: " + stationID + "\r\n" : "") +
                 "\r\n";
 
@@ -94,7 +98,10 @@ public class GETClient {
 
             System.out.println(responseStr);
 
-            if (responseStr.contains("500")) {
+            if (responseStr == null) {
+                System.out.println("Error: No response received from the server.");
+                return null;
+            } else if (responseStr.contains("500")) {
                 System.out.println("Internal Server Error: The JSON data on the server might be in incorrect format.");
                 return null;
             } else if (responseStr.contains("204")) {

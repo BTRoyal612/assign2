@@ -19,4 +19,6 @@ public interface NetworkHandler {
     void closeClient();
 
     void closeServer();
+
+    int initializeSocket(String serverName, int portNumber);
 }

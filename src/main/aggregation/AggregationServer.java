@@ -9,6 +9,7 @@ import main.network.SocketNetworkHandler;
 import com.google.gson.reflect.TypeToken;
 
 import java.io.File;
+import java.io.PrintWriter;
 import java.lang.reflect.Type;
 
 import java.io.IOException;
@@ -169,6 +170,13 @@ public class AggregationServer {
 
         System.out.println("\nBefore Cleanup: " + dataStore);
 
+        // If the timestampStore is empty, clear the entire dataStore
+        if (timestampStore.isEmpty()) {
+            dataStore.clear();
+            System.out.println("Cleared dataStore due to empty timestampStore");
+            return;  // No further processing needed
+        }
+
         // Remove data entries associated with stale server IDs
         for (String stationID : dataStore.keySet()) {
             PriorityQueue<WeatherData> queue = dataStore.get(stationID);
@@ -184,6 +192,7 @@ public class AggregationServer {
         }
     }
 
+
     /**
      * Initializes a thread to continuously accept incoming client connections and add them to a request queue.
      */
@@ -194,6 +203,13 @@ public class AggregationServer {
                     Socket clientSocket = networkHandler.acceptConnection();
                     if(clientSocket != null) {
                         System.out.println("Accepted connection from: " + clientSocket);
+
+                        // Send the current Lamport clock value to the client right after accepting the connection
+                        String clockValue = "LamportClock: " + lamportClock.getTime();
+                        PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+                        out.println(clockValue);
+                        out.flush();
+
                         requestQueue.put(clientSocket);
                     }
                 } catch (IOException e) {
@@ -309,6 +325,7 @@ public class AggregationServer {
     public String handleGetRequest(Map<String, String> headers, String content) {
         int lamportTime = Integer.parseInt(headers.getOrDefault("LamportClock", "-1"));
         lamportClock.receive(lamportTime);
+        lamportTime = lamportClock.getTime();
 
         String stationId = headers.get("StationID");
         if (stationId == null || stationId.isEmpty()) {
@@ -327,8 +344,9 @@ public class AggregationServer {
         }
 
         // Find the first WeatherData with Lamport time less than the request's Lamport time
+        int finalLamportTime = lamportTime;
         Optional<WeatherData> targetData = weatherDataQueue.stream()
-                .filter(data -> data.getLamportTime() <= lamportTime)
+                .filter(data -> data.getLamportTime() <= finalLamportTime)
                 .findFirst();
 
         // No data available matching the Lamport time condition

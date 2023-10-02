@@ -44,6 +44,11 @@ public class StubNetworkHandler implements NetworkHandler {
     public void closeServer() {
     }
 
+    @Override
+    public int initializeSocket(String serverName, int portNumber) {
+        return 0;
+    }
+
     public String getLastSentData() {
         return lastSentData;
     }

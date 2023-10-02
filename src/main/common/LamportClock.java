@@ -31,4 +31,8 @@ public class LamportClock {
     public String toString() {
         return "LamportClock [time=" + time + "]";
     }
+
+    public void setClock(int newValue) {
+        this.time = newValue;
+    }
 }
