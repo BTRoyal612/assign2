@@ -25,12 +25,10 @@ class AggregationServerTest {
         assertTrue(server.addWeatherData(mockWeatherData, 1, "Server1"));
 
         // Simulating GET request
-        String getRequest = """
-                GET /weather.json HTTP/1.1\r
-                LamportClock: 2\r
-                StationID: IDS60901\r
-                \r
-                """;
+        String getRequest = "GET /weather.json HTTP/1.1\r\n" +
+                "LamportClock: 2\r\n" +
+                "StationID: IDS60901\r\n" +
+                "\r\n";
         stubNetworkHandler.setSimulatedResponse(getRequest);
 
         // Run server logic for single request
@@ -47,11 +45,9 @@ class AggregationServerTest {
         assertTrue(server.addWeatherData(mockWeatherData, 1, "Server1"));
 
         // Simulating GET request without specifying a station ID
-        String getRequest = """
-                GET /weather.json HTTP/1.1\r
-                LamportClock: 1\r
-                \r
-                """;
+        String getRequest = "GET /weather.json HTTP/1.1\r\n" +
+                "LamportClock: 1\r\n" +
+                "\r\n";
         stubNetworkHandler.setSimulatedResponse(getRequest);
 
         // Run server logic for single request
@@ -64,19 +60,15 @@ class AggregationServerTest {
     @Test
     void testGetNotFound() {
         // Simulating GET request without having data in the DataStore
-        String getRequest = """
-                GET /weather.json HTTP/1.1\r
-                LamportClock: 1\r
-                StationID: IDS60901\r
-                \r
-                """;
+        String getRequest = "GET /weather.json HTTP/1.1\r\n" +
+                "LamportClock: 1\r\n" +
+                "StationID: IDS60901\r\n" +
+                "\r\n";
         stubNetworkHandler.setSimulatedResponse(getRequest);
 
-        String expectedResponse = """
-                HTTP/1.1 204 No Content\r
-                LamportClock: 3\r
-                \r
-                """;
+        String expectedResponse = "HTTP/1.1 204 No Content\r\n" +
+                "LamportClock: 3\r\n" +
+                "\r\n";
 
         // Run server logic for single request
         String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, getRequest, false));
@@ -88,24 +80,21 @@ class AggregationServerTest {
     @Test
     void testHandleFirstPutRequest() {
         // Simulating PUT request
-        String putRequest = """
-                PUT /weather.json HTTP/1.1\r
-                User-Agent: ATOMClient/1/0\r
-                SenderID: 1\r
-                Content-Type: application/json\r
-                Content-Length: 235\r
-                \r
-                {\r
-                    "id" : "IDS60901",\r
-                    "wind_spd_kt": 8\r
-                }""";
+        String putRequest = "PUT /weather.json HTTP/1.1\r\n" +
+                "User-Agent: ATOMClient/1/0\r\n" +
+                "SenderID: 1\r\n" +
+                "Content-Type: application/json\r\n" +
+                "Content-Length: 235\r\n" +
+                "\r\n" +
+                "{\r\n" +
+                "    \"id\" : \"IDS60901\",\r\n" +
+                "    \"wind_spd_kt\": 8\r\n" +
+                "}";
         stubNetworkHandler.setSimulatedResponse(putRequest);
 
-        String expectedResponse = """
-                HTTP/1.1 201 HTTP_CREATED\r
-                LamportClock: 2\r
-                \r
-                """;
+        String expectedResponse = "HTTP/1.1 201 HTTP_CREATED\r\n" +
+                "LamportClock: 2\r\n" +
+                "\r\n";
 
         // Run server logic for single request
         String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, putRequest, false));

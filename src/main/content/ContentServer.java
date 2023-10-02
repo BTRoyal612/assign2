@@ -17,7 +17,7 @@ public class ContentServer {
     private LamportClock lamportClock = new LamportClock();
     private JsonObject weatherData;
     private ScheduledExecutorService dataUploadScheduler = Executors.newScheduledThreadPool(1);
-    private final NetworkHandler networkHandler;
+    private NetworkHandler networkHandler;
 
     /**
      * Constructor for ContentServer.
@@ -105,6 +105,12 @@ public class ContentServer {
     public void uploadWeatherData(String serverName, int portNumber) {
         dataUploadScheduler.scheduleAtFixedRate(() -> {
             try {
+                // Step 1: Initialize the socket and get the Lamport clock value from the server
+                int serverLamportClock = networkHandler.initializeSocket(serverName, portNumber);
+
+                // Step 2: Set your Lamport clock using the value from the server
+                lamportClock.setClock(serverLamportClock);
+
                 String putRequest = "PUT /uploadData HTTP/1.1\r\n" +
                         "Host: " + serverName + "\r\n" +
                         "SenderID: " + senderID + "\r\n" +
@@ -119,15 +125,27 @@ public class ContentServer {
                 System.out.println(response);
 
                 if (response != null && (response.contains("200") || response.contains("201"))) {
-                    lamportClock.send();
+                    lamportClock.tick();
                     System.out.println("Data uploaded successfully.");
                 } else {
                     System.out.println("Error uploading data. Server response: " + response);
                 }
             } catch (Exception e) {
                 System.out.println("Error while connecting to the server: " + e.getMessage());
+                System.out.println("Retry in 15 second.");
+                retryUpload(serverName, portNumber);
             }
         }, 0, 30, TimeUnit.SECONDS);
+    }
+
+    private void retryUpload(String serverName, int portNumber) {
+        try {
+            // Sleep for 30 seconds before retrying
+            Thread.sleep(15000);
+            uploadWeatherData(serverName, portNumber);
+        } catch (InterruptedException ie) {
+            System.out.println("Retry interrupted: " + ie.getMessage());
+        }
     }
 
     private void initializeShutdownMonitor() {
