@@ -1,11 +1,11 @@
 package main.client;
 
+import main.common.JsonHandler;
 import main.network.NetworkHandler;
 import main.network.SocketNetworkHandler;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonObject;
 import main.common.LamportClock;  // Importing the LamportClock class
-import main.common.JSONHandler;
 import java.util.UUID;
 
 public class GETClient {
@@ -61,7 +61,7 @@ public class GETClient {
         }
 
         try {
-            String weatherDataText = JSONHandler.convertJSONToText(response);
+            String weatherDataText = JsonHandler.convertJSONToText(response);
             String[] lines = weatherDataText.split("\n");
             for (String line : lines) {
                 System.out.println(line);
@@ -109,7 +109,7 @@ public class GETClient {
                 return null;
             }
 
-            return JSONHandler.parseJSONObject(JSONHandler.extractJSONContent(responseStr));
+            return JsonHandler.parseJSONObject(JsonHandler.extractJSONContent(responseStr));
         } catch (JsonParseException e) {
             System.out.println("Error parsing the server's JSON response: " + e.getMessage());
             e.printStackTrace();
