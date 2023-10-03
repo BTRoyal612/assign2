@@ -1,25 +1,18 @@
 package main.aggregation;
 
-import main.common.JSONHandler;
-import main.common.WeatherData;
 import com.google.gson.*;
+import main.common.JsonHandler;
+import main.common.WeatherData;
 import main.common.LamportClock;
 import main.network.NetworkHandler;
 import main.network.SocketNetworkHandler;
-import com.google.gson.reflect.TypeToken;
 
-import java.io.File;
 import java.io.PrintWriter;
-import java.lang.reflect.Type;
 
 import java.io.IOException;
 import java.net.Socket;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
 public class AggregationServer {
     private static final int DEFAULT_PORT = 4567;
@@ -27,20 +20,12 @@ public class AggregationServer {
     private volatile boolean shutdown = false;
     private Thread acceptThread;
     private NetworkHandler networkHandler;
-    private DataStoreService dataStoreService;
-
-    private ScheduledExecutorService cleanupScheduler;
+    private static DataStoreService dataStoreService = DataStoreService.getInstance();
 
     // Lamport clock for the server
     private LamportClock lamportClock = new LamportClock();
 
     private LinkedBlockingQueue<Socket> requestQueue = new LinkedBlockingQueue<>();
-
-    private static final String DATA_FILE_PATH = "src" + File.separator + "data" + File.separator + "dataStore.json";
-    private static final String BACKUP_FILE_PATH = "src" + File.separator + "data" + File.separator + "dataStore_backup.json";
-    private static final String TIMESTAMP_FILE_PATH = "src" + File.separator + "data" + File.separator + "timestampStore.json";
-    private static final String TIMESTAMP_BACKUP_FILE_PATH = "src" + File.separator + "data" + File.separator + "timestampStore_backup.json";
-    private ScheduledExecutorService fileSaveScheduler;
 
     /**
      * Main method to start the AggregationServer.
@@ -62,7 +47,7 @@ public class AggregationServer {
      */
     public AggregationServer(NetworkHandler networkHandler) {
         this.networkHandler = networkHandler;
-        this.dataStoreService = new DataStoreService();
+        dataStoreService.registerAS();
     }
 
     /**
@@ -72,15 +57,6 @@ public class AggregationServer {
     public void start(int portNumber) {
         System.out.println("server start");
         networkHandler.startServer(portNumber); // Starting the server socket
-
-        // Schedule periodic saving of data
-        fileSaveScheduler = Executors.newScheduledThreadPool(1);
-        fileSaveScheduler.scheduleAtFixedRate(this::saveDataToFile, 0, 60, TimeUnit.SECONDS); // for example, every minute
-        loadDataFromFile();  // recover data at startup
-
-        // Initialize cleanup task
-        cleanupScheduler = Executors.newScheduledThreadPool(1);
-        cleanupScheduler.scheduleAtFixedRate(this::cleanupStaleEntries, 0, 21, TimeUnit.SECONDS);
 
         System.out.println("monitor shutdown start");
         initializeShutdownMonitor(); // Start the shutdown monitor thread
@@ -107,97 +83,6 @@ public class AggregationServer {
             }
         });
         monitorThread.start();
-    }
-
-    // Atomic File Save method
-    private synchronized void saveDataToFile() {
-        saveObjectToFile(dataStoreService.getDataMap(), DATA_FILE_PATH, BACKUP_FILE_PATH);
-        saveObjectToFile(dataStoreService.getTimestampMap(), TIMESTAMP_FILE_PATH, TIMESTAMP_BACKUP_FILE_PATH);
-    }
-
-    private synchronized <T> void saveObjectToFile(T object, String filePath, String backupFilePath) {
-        try {
-            // Convert the object to JSON
-            String jsonData = JSONHandler.serializeObject(object);
-
-            // Save to backup file
-            Files.write(Paths.get(backupFilePath), jsonData.getBytes());
-
-            // Atomically move backup file to main file
-            Files.move(Paths.get(backupFilePath), Paths.get(filePath), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void loadDataFromFile() {
-        Map<String, PriorityQueue<WeatherData>> loadedDataStore =
-                loadObjectFromFile(DATA_FILE_PATH, BACKUP_FILE_PATH, new TypeToken<ConcurrentHashMap<String, PriorityQueue<WeatherData>>>(){}.getType());
-
-        Map<String, Long> loadedTimestampStore =
-                loadObjectFromFile(TIMESTAMP_FILE_PATH, TIMESTAMP_BACKUP_FILE_PATH, new TypeToken<ConcurrentHashMap<String, Long>>(){}.getType());
-
-        // Set loaded data to DataStoreService
-        dataStoreService.setDataMap(loadedDataStore);
-        dataStoreService.setTimestampMap(loadedTimestampStore);
-    }
-
-    private <T> T loadObjectFromFile(String filePath, String backupFilePath, Type type) {
-        try {
-            String jsonData = new String(Files.readAllBytes(Paths.get(filePath)));
-            return JSONHandler.deserializeObject(jsonData, type);
-        } catch (IOException e) {
-            // If there's an error, try to load from the backup file
-            try {
-                String backupData = new String(Files.readAllBytes(Paths.get(backupFilePath)));
-                return JSONHandler.deserializeObject(backupData, type);
-            } catch (IOException ex) {
-                ex.printStackTrace();
-                return null;
-            }
-        }
-    }
-
-    private void cleanupStaleEntries() {
-        System.out.println("Before Cleanup:");
-        printDataStoreAndTimestamps();
-        long currentTime = System.currentTimeMillis();
-
-        // Identify stale server IDs
-        Set<String> staleSenderIds = dataStoreService.getAllTimestampKeys().stream()
-                .filter(entry -> currentTime - dataStoreService.getTimestamp(entry) > THRESHOLD)
-                .collect(Collectors.toSet());
-
-        // Remove stale server IDs from timestampStore
-        staleSenderIds.forEach(dataStoreService::removeTimestampKey);
-
-        // If the timestampStore is empty, clear the entire dataStore
-        if (dataStoreService.getAllTimestampKeys().isEmpty()) {
-            dataStoreService.getAllDataKeys().forEach(dataStoreService::removeDataKey);
-            return;
-        }
-
-        // Remove data entries associated with stale server IDs
-        for (String stationID : dataStoreService.getAllDataKeys()) {
-            PriorityQueue<WeatherData> queue = dataStoreService.getData(stationID);
-            queue.removeIf(weatherData -> staleSenderIds.contains(weatherData.getSenderID()));
-
-            if (queue.isEmpty()) {
-                dataStoreService.removeDataKey(stationID);
-            }
-        }
-
-        System.out.println("After Cleanup:");
-        printDataStoreAndTimestamps();
-    }
-
-    private void printDataStoreAndTimestamps() {
-        System.out.println("\nDataStore:");
-        System.out.println(dataStoreService.getDataMap());
-
-        System.out.println("\nTimestampStore:");
-        System.out.println(dataStoreService.getTimestampMap());
     }
 
     /**
@@ -401,7 +286,7 @@ public class AggregationServer {
 
     private boolean processWeatherData(String content, int lamportTime, String senderID) {
         try {
-            JsonObject weatherDataJSON = JSONHandler.parseJSONObject(content);
+            JsonObject weatherDataJSON = JsonHandler.parseJSONObject(content);
             WeatherData newWeatherData = new WeatherData(weatherDataJSON, lamportTime, senderID);
             dataStoreService.putData(senderID, newWeatherData);
             return true;
@@ -489,27 +374,7 @@ public class AggregationServer {
             acceptThread.interrupt();
         }
 
-        // Shutdown fileSaveScheduler gracefully
-        fileSaveScheduler.shutdown();
-        try {
-            if (!fileSaveScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                fileSaveScheduler.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            fileSaveScheduler.shutdownNow();
-        }
-
-        if (cleanupScheduler != null) {
-            cleanupScheduler.shutdown();
-            try {
-                if (!cleanupScheduler.awaitTermination(60, TimeUnit.SECONDS)) {
-                    cleanupScheduler.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                cleanupScheduler.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-        }
+        dataStoreService.deregisterAS();
 
         System.out.println("Shutting down server...");
     }

@@ -1,8 +1,8 @@
 package main.content;
 
 import com.google.gson.JsonObject;
+import main.common.JsonHandler;
 import main.common.LamportClock;
-import main.common.JSONHandler;
 import main.network.NetworkHandler;
 import main.network.SocketNetworkHandler;
 
@@ -86,8 +86,8 @@ public class ContentServer {
      */
     public boolean loadWeatherData(String filePath) {
         try {
-            String fileContent = JSONHandler.readFile(filePath);
-            weatherData = JSONHandler.convertTextToJSON(fileContent);
+            String fileContent = JsonHandler.readFile(filePath);
+            weatherData = JsonHandler.convertTextToJSON(fileContent);
             return true;
         } catch (Exception e) {
             System.out.println("Error loading weather data: " + e.getMessage());

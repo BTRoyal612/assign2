@@ -1,6 +1,7 @@
 package main.network;
 
 import java.io.*;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
@@ -177,4 +178,32 @@ public class SocketNetworkHandler implements NetworkHandler {
             e.printStackTrace();
         }
     }
+
+    @Override
+    public Socket createConnection(InetSocketAddress address) {
+        try {
+            return new Socket(address.getAddress(), address.getPort());
+        } catch (IOException e) {
+            // Handle the exception here, for example, by logging it or rethrowing as a runtime exception
+            e.printStackTrace(); // Logging the error for now
+            return null; // You can return null or handle this differently based on your needs
+        }
+    }
+
+    @Override
+    public void sendData(Socket socket, String data) {
+        try {
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            out.println(data);
+        } catch (IOException e) {
+            // Handle the exception here, for example, by logging it or rethrowing as a runtime exception
+            e.printStackTrace(); // Logging the error for now
+        }
+    }
+
+    @Override
+    public String receiveData(Socket socket) {
+        return waitForClientData(socket);
+    }
+
 }

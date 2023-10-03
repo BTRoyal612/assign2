@@ -1,6 +1,7 @@
 package main.network;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 
 public interface NetworkHandler {
@@ -21,4 +22,10 @@ public interface NetworkHandler {
     void closeServer();
 
     int initializeSocket(String serverName, int portNumber);
+
+    Socket createConnection(InetSocketAddress serverAddress);
+
+    void sendData(Socket serverSocket, String requestData);
+
+    String receiveData(Socket serverSocket);
 }

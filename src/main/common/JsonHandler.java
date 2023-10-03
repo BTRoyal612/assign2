@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-public class JSONHandler {
+public class JsonHandler {
     private static final Gson gson = new Gson();
 
     public static String readFile(String filePath) throws Exception {
