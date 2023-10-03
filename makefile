@@ -11,6 +11,7 @@ TEST_CLASSES = $(patsubst %.java,%.class,$(wildcard $(SRC)/test/**/*.java))
 
 TEST_MAIN_CLASS = org.junit.platform.console.ConsoleLauncher
 MAIN_CLASS = test.client.GETClientTest
+LOAD_BALANCER = main.aggregation.LoadBalancer
 AGGREGATION_SERVER = main.aggregation.AggregationServer
 CONTENT_SERVER = main.content.ContentServer
 GETCLIENT = main.client.GETClient
@@ -36,6 +37,9 @@ clean:
 
 aggregation: all
 	@$(JAVA) $(CP) $(AGGREGATION_SERVER)
+
+loadbalancer: all
+	@$(JAVA) $(CP) $(LOAD_BALANCER)
 
 content: all
 	@$(JAVA) $(CP) $(CONTENT_SERVER) localhost 4567 $(SRC)/main/content/input.txt

@@ -10,7 +10,7 @@ import main.network.SocketNetworkHandler;
 import java.io.PrintWriter;
 
 import java.io.IOException;
-import java.net.Socket;
+import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -19,6 +19,7 @@ public class AggregationServer {
     private static final long THRESHOLD = 40000;
     private volatile boolean shutdown = false;
     private Thread acceptThread;
+    private int port;
     private NetworkHandler networkHandler;
     private static DataStoreService dataStoreService = DataStoreService.getInstance();
 
@@ -38,7 +39,7 @@ public class AggregationServer {
         }
         NetworkHandler networkHandler = new SocketNetworkHandler();
         AggregationServer server = new AggregationServer(networkHandler);
-        server.start(port);
+        server.startAlone(port);
     }
 
     /**
@@ -50,22 +51,76 @@ public class AggregationServer {
         dataStoreService.registerAS();
     }
 
+    public int getPort() {
+        return this.port;
+    }
+
     /**
      * Starts the server and initializes required components.
      * @param portNumber The port number on which the server will listen for incoming connections.
      */
     public void start(int portNumber) {
-        System.out.println("server start");
+        this.port = portNumber;
+//        System.out.println("server start");
         networkHandler.startServer(portNumber); // Starting the server socket
 
-        System.out.println("monitor shutdown start");
+//        System.out.println("monitor shutdown start");
+//        initializeShutdownMonitor(); // Start the shutdown monitor thread
+
+//        System.out.println("accept connection start");
+//        initializeAcceptThread();   // Start the client acceptance thread
+
+//        System.out.println("process requests");
+        processClientRequests();    // Start processing client requests
+    }
+
+    public void startAlone(int portNumber) {
+        this.port = portNumber;
+//        System.out.println("server start");
+        networkHandler.startServer(portNumber); // Starting the server socket
+
+//        System.out.println("monitor shutdown start");
         initializeShutdownMonitor(); // Start the shutdown monitor thread
 
-        System.out.println("accept connection start");
+//        System.out.println("accept connection start");
         initializeAcceptThread();   // Start the client acceptance thread
 
-        System.out.println("process requests");
+//        System.out.println("process requests");
         processClientRequests();    // Start processing client requests
+    }
+
+    /**
+     * This method is used by the LoadBalancer to directly inject a client socket into the
+     * Aggregation Server's processing logic.
+     * @param clientSocket The client socket forwarded by the LoadBalancer.
+     */
+    public void acceptExternalSocket(Socket clientSocket) {
+        try {
+            System.out.println(getPort() + " received external socket from LoadBalancer: " + clientSocket);
+
+            // Send the current Lamport clock value to the client.
+            String clockValue = "LamportClock: " + lamportClock.getTime();
+            PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+            out.println(clockValue);
+            out.flush();
+
+            requestQueue.put(clientSocket);
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * A simple health check method to check if the AggregationServer is up and running.
+     * @return true if the server is reachable, false otherwise.
+     */
+    public boolean isAlive() {
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 1000); // 1 second timeout
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     /**

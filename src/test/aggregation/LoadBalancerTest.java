@@ -1,73 +1,59 @@
 package test.aggregation;
 
+import main.aggregation.AggregationServer;
 import main.aggregation.LoadBalancer;
-import org.junit.After;
-import test.network.StubNetworkHandler;
+import main.network.NetworkHandler;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
-import org.junit.Before;
-import org.junit.Test;
-import static org.junit.Assert.*;
-
-import java.net.InetSocketAddress;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public class LoadBalancerTest {
-    private LoadBalancer loadBalancer;
-    private StubNetworkHandler stubNetworkHandler;
-    private List<StubAggregationServer> stubServers;
 
-    @Before
+    private NetworkHandler mockNetworkHandler;
+    private AggregationServer mockServer1, mockServer2, mockServer3;
+    private List<AggregationServer> mockServerList;
+
+    @BeforeEach
     public void setUp() {
-        stubNetworkHandler = new StubNetworkHandler();
-        List<InetSocketAddress> serverAddresses = Arrays.asList(
-                new InetSocketAddress("127.0.0.1", 4568),
-                new InetSocketAddress("127.0.0.1", 4569),
-                new InetSocketAddress("127.0.0.1", 4570)
-        );
-
-        stubServers = new ArrayList<>();
-        for (InetSocketAddress address : serverAddresses) {
-            StubAggregationServer stubServer = new StubAggregationServer(address);
-            stubServers.add(stubServer);
-            stubServer.start();
-        }
-
-        loadBalancer = new LoadBalancer(stubNetworkHandler, serverAddresses);
-    }
-
-    @After
-    public void tearDown() {
-        for (StubAggregationServer server : stubServers) {
-            server.stop(); // Or some equivalent to shut down the stub server
-        }
+        // Setup mock NetworkHandler and AggregationServers
+        mockNetworkHandler = mock(NetworkHandler.class);
+        mockServer1 = mock(AggregationServer.class);
+        mockServer2 = mock(AggregationServer.class);
+        mockServer3 = mock(AggregationServer.class);
+        mockServerList = Arrays.asList(mockServer1, mockServer2, mockServer3);
     }
 
     @Test
-    public void testRoundRobinDistribution() {
-        InetSocketAddress firstServer = loadBalancer.getNextAggregationServer();
-        InetSocketAddress secondServer = loadBalancer.getNextAggregationServer();
-        InetSocketAddress thirdServer = loadBalancer.getNextAggregationServer();
-        InetSocketAddress loopBackServer = loadBalancer.getNextAggregationServer();
+    public void testGetNextAggregationServer() {
+        LoadBalancer lb = new LoadBalancer(mockNetworkHandler, mockServerList);
 
-        assertEquals(firstServer, new InetSocketAddress("127.0.0.1", 4568));
-        assertEquals(secondServer, new InetSocketAddress("127.0.0.1", 4569));
-        assertEquals(thirdServer, new InetSocketAddress("127.0.0.1", 4570));
-        assertEquals(loopBackServer, firstServer);  // Checks the round-robin mechanism
+        // Test round-robin behavior
+        assertSame(mockServer1, lb.getNextAggregationServer());
+        assertSame(mockServer2, lb.getNextAggregationServer());
+        assertSame(mockServer3, lb.getNextAggregationServer());
+        assertSame(mockServer1, lb.getNextAggregationServer());
     }
 
     @Test
-    public void testDataFlow() {
-        String clientData = "Client Data";
-        stubNetworkHandler.setSimulatedResponse("Aggregation Server Response");
+    public void testCheckServerHealth() {
+        LoadBalancer lb = new LoadBalancer(mockNetworkHandler, mockServerList);
 
-        String response = loadBalancer.forwardRequestToAggregationServer(
-                new InetSocketAddress("127.0.0.1", 4568), clientData
-        );
+        // Mock behaviors for the isAlive method
+        when(mockServer1.isAlive()).thenReturn(true);
+        when(mockServer2.isAlive()).thenReturn(false); // Pretend server2 is not alive
+        when(mockServer3.isAlive()).thenReturn(true);
 
-        assertEquals("Aggregation Server Response", response);
-        assertEquals(clientData, stubNetworkHandler.getLastSentData());
-        assertEquals(1, stubNetworkHandler.getSentDataCount());
+        lb.checkServerHealth();
+
+        // Since server2 is not alive, it should be removed from the list.
+        List<AggregationServer> updatedServers = lb.getAggregationServers(); // Add a getter for this in LoadBalancer for the test's sake
+
+        assertTrue(updatedServers.contains(mockServer1));
+        assertFalse(updatedServers.contains(mockServer2));
+        assertTrue(updatedServers.contains(mockServer3));
     }
 }

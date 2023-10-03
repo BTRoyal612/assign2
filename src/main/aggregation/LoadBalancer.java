@@ -10,32 +10,31 @@ import java.util.concurrent.*;
 
 public class LoadBalancer {
     private static final int DEFAULT_PORT = 4567; // For LB. Different from AggregationServer.
-    private final List<InetSocketAddress> serverAddresses;
     private volatile boolean shutdown = false;
     private NetworkHandler networkHandler; // This will be the same type as the one in AggregationServer.
     private int serverIndex = 0;
     private ScheduledExecutorService healthCheckScheduler;
 
-    private List<AggregationServer> managedServers;
+    private List<AggregationServer> aggregationServers;
 
-    public LoadBalancer(NetworkHandler networkHandler, List<InetSocketAddress> serverAddresses) {
+    public LoadBalancer(NetworkHandler networkHandler, List<AggregationServer> aggregationServers) {
         this.networkHandler = networkHandler;
-        this.serverAddresses = serverAddresses;
-        this.managedServers = new ArrayList<>();
+        this.aggregationServers = new ArrayList<>(aggregationServers);
     }
 
     public void start(int port) {
+        System.out.println("start lb");
         networkHandler.startServer(port);
-        initializeAcceptThread();
 
+        System.out.println("start lb health check");
         healthCheckScheduler = Executors.newScheduledThreadPool(1);
-        healthCheckScheduler.scheduleAtFixedRate(this::checkServerHealth, 0, 10, TimeUnit.SECONDS);
+        healthCheckScheduler.scheduleAtFixedRate(this::checkServerHealth, 0, 30, TimeUnit.SECONDS);
 
+        System.out.println("start shutdown monitor");
         initializeShutdownMonitor();
-    }
 
-    public void addManagedServer(AggregationServer server) {
-        this.managedServers.add(server);
+        System.out.println("start request listen");
+        initializeAcceptThread();
     }
 
     private void initializeAcceptThread() {
@@ -44,6 +43,7 @@ public class LoadBalancer {
                 try {
                     Socket clientSocket = networkHandler.acceptConnection();
                     if (clientSocket != null) {
+                        System.out.println("lb receive request");
                         handleClientSocket(clientSocket);
                     }
                 } catch (IOException e) {
@@ -56,81 +56,38 @@ public class LoadBalancer {
 
     private void handleClientSocket(Socket clientSocket) {
         try {
-            String requestData = networkHandler.waitForClientData(clientSocket);
-            if (requestData != null) {
-                InetSocketAddress serverAddress = getNextAggregationServer();
-                if (serverAddress != null) {
-                    String responseData = forwardRequestToAggregationServer(serverAddress, requestData);
-                    networkHandler.sendResponseToClient(responseData, clientSocket);
-                }
+            AggregationServer nextServer = getNextAggregationServer();
+            if (nextServer != null) {
+                // Pass the client socket to the chosen AS.
+                nextServer.acceptExternalSocket(clientSocket);
             }
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
             try {
                 clientSocket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
             }
         }
     }
 
-    public synchronized InetSocketAddress getNextAggregationServer() {
-        if (serverAddresses.isEmpty()) return null;
-
-        serverIndex = (serverIndex + 1) % serverAddresses.size();
-        return serverAddresses.get(serverIndex);
-    }
-
-    public String forwardRequestToAggregationServer(InetSocketAddress serverAddress, String requestData) {
-        Socket serverSocket = null;
-        try {
-            // Establish a connection to the AggregationServer.
-            serverSocket = networkHandler.createConnection(serverAddress);
-
-            // Check if the socket is valid (in case the connection failed and returned null)
-            if (serverSocket == null) {
-                return "Error: Failed to establish connection to server";
-            }
-
-            // Forward the client's request to the server.
-            networkHandler.sendData(serverSocket, requestData);
-
-            // Get the server's response.
-            String serverResponse = networkHandler.receiveData(serverSocket);
-            return serverResponse;
-        } catch (Exception e) { // Catching general exceptions since IOException is no longer thrown directly
-            e.printStackTrace();
-            return "Error: Failed to forward request to server";
-        } finally {
-            if (serverSocket != null) {
-                try {
-                    serverSocket.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
+    public synchronized AggregationServer getNextAggregationServer() {
+        if (aggregationServers.isEmpty()) {
+            return null; // Return null or handle this scenario as per your needs.
         }
+
+        AggregationServer nextServer = aggregationServers.get(serverIndex);
+        serverIndex = (serverIndex + 1) % aggregationServers.size(); // This ensures round-robin behavior
+        return nextServer;
     }
 
-    private void checkServerHealth() {
-        Iterator<InetSocketAddress> iterator = serverAddresses.iterator();
+    public void checkServerHealth() {
+        Iterator<AggregationServer> iterator = aggregationServers.iterator();
         while (iterator.hasNext()) {
-            InetSocketAddress address = iterator.next();
-            if (!isServerAlive(address)) {
+            AggregationServer server = iterator.next();
+            if (!server.isAlive()) {
                 iterator.remove(); // Removes unreachable servers from the list.
             }
-        }
-    }
-
-    private boolean isServerAlive(InetSocketAddress address) {
-        try (Socket socket = new Socket()) {
-            // Try to establish a connection with a timeout (e.g., 2 seconds)
-            socket.connect(address, 2000);
-            return true;
-        } catch (IOException e) {
-            // If an exception occurs during connection, it indicates the server is down or unreachable.
-            return false;
         }
     }
 
@@ -154,7 +111,7 @@ public class LoadBalancer {
         System.out.println("Shutting down the LoadBalancer...");
 
         // 1. Signal each AggregationServer to shut down gracefully.
-        for (AggregationServer server : managedServers) {
+        for (AggregationServer server : aggregationServers) {
             server.shutdown(); // Assuming the AggregationServer has a shutdown method
         }
 
@@ -181,28 +138,32 @@ public class LoadBalancer {
 
         // Start the LoadBalancer's network handler
         NetworkHandler lbNetworkHandler = new SocketNetworkHandler();
+        List<AggregationServer> serverInstances = new ArrayList<>();
 
-        // Define the ports and addresses for the Aggregation Servers
+        // Define the ports for the Aggregation Servers
         List<Integer> serverPorts = Arrays.asList(4568, 4569, 4570);
-        List<InetSocketAddress> servers = new ArrayList<>();
-
-        for (int serverPort : serverPorts) {
-            servers.add(new InetSocketAddress("127.0.0.1", serverPort));
-        }
-
-        // Initialize the LoadBalancer
-        LoadBalancer loadBalancer = new LoadBalancer(lbNetworkHandler, servers);
 
         for (int serverPort : serverPorts) {
             NetworkHandler asNetworkHandler = new SocketNetworkHandler();
             AggregationServer server = new AggregationServer(asNetworkHandler);
-            server.start(serverPort); // Start each AggregationServer instance
+            serverInstances.add(server);
 
-            // Add to managed servers
-            loadBalancer.addManagedServer(server);
+            // Start each AggregationServer instance in a new thread
+            new Thread(() -> {
+                server.start(serverPort);
+            }).start();
+
+            System.out.println("Started AggregationServer on port: " + serverPort);
         }
+
+        // Initialize the LoadBalancer
+        LoadBalancer loadBalancer = new LoadBalancer(lbNetworkHandler, serverInstances);
 
         // Start the LoadBalancer
         loadBalancer.start(port);
+    }
+
+    public List<AggregationServer> getAggregationServers() {
+        return this.aggregationServers;
     }
 }
