@@ -109,26 +109,36 @@ public class ContentServer {
                 int serverLamportClock = networkHandler.initializeSocket(serverName, portNumber);
 
                 // Step 2: Set your Lamport clock using the value from the server
-                lamportClock.setClock(serverLamportClock);
+                lamportClock.receive(serverLamportClock);
 
                 String putRequest = "PUT /uploadData HTTP/1.1\r\n" +
                         "Host: " + serverName + "\r\n" +
                         "SenderID: " + senderID + "\r\n" +
-                        "LamportClock: " + lamportClock.send() + "\r\n" +
+                        "LamportClock: " + lamportClock.getTime() + "\r\n" +
                         "Content-Type: application/json\r\n" +
                         "Content-Length: " + weatherData.toString().length() + "\r\n" +
                         "\r\n" +
                         weatherData;
 
                 String response = networkHandler.sendAndReceiveData(serverName, portNumber, putRequest, true);
-
                 System.out.println(response);
 
-                if (response != null && (response.contains("200") || response.contains("201"))) {
-                    lamportClock.tick();
-                    System.out.println("Data uploaded successfully.");
-                } else {
-                    System.out.println("Error uploading data. Server response: " + response);
+                if (response != null) {
+                    // Parse for the LamportClock from the response and update local clock
+                    String[] lines = response.split("\r\n");
+                    for (String line : lines) {
+                        if (line.startsWith("LamportClock: ")) {
+                            int responseClock = Integer.parseInt(line.split(": ")[1]);
+                            lamportClock.receive(responseClock);
+                            break;
+                        }
+                    }
+
+                    if (response.contains("200") || response.contains("201")) {
+                        System.out.println("Data uploaded successfully.");
+                    } else {
+                        System.out.println("Error uploading data. Server response: " + response);
+                    }
                 }
             } catch (Exception e) {
                 System.out.println("Error while connecting to the server: " + e.getMessage());
