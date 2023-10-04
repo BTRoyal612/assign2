@@ -41,6 +41,9 @@ aggregation: all
 loadbalancer: all
 	@$(JAVA) $(CP) $(LOAD_BALANCER)
 
+loadbalancer1: all
+	@$(JAVA) $(CP) $(LOAD_BALANCER) 4567 1
+
 content: all
 	@$(JAVA) $(CP) $(CONTENT_SERVER) localhost 4567 $(SRC)/main/content/input.txt
 

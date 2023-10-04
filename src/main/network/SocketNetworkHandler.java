@@ -1,7 +1,6 @@
 package main.network;
 
 import java.io.*;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
@@ -12,6 +11,7 @@ public class SocketNetworkHandler implements NetworkHandler {
     private PrintWriter out;
     private BufferedReader in;
 
+    // For Aggregation Server and Load Balancer
     @Override
     public void startServer(int portNumber) {
         try {
@@ -92,6 +92,43 @@ public class SocketNetworkHandler implements NetworkHandler {
     }
 
     @Override
+    public void closeServer() {
+        try {
+            if (serverSocket != null) serverSocket.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // For Content Server and GETClient
+
+    @Override
+    public int initializeSocket(String serverName, int portNumber) {
+        try {
+            clientSocket = new Socket(serverName, portNumber);
+            out = new PrintWriter(clientSocket.getOutputStream(), true);
+            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+
+            // Parse the Lamport clock value sent by the server immediately after the connection
+            String clockLine = in.readLine();
+
+            if (clockLine == null) {
+                throw new IOException("Server closed the connection without sending LamportClock.");
+            }
+
+            if (clockLine.startsWith("LamportClock: ")) {
+                return Integer.parseInt(clockLine.split(":")[1].trim());
+            } else {
+                throw new IOException("Expected LamportClock value from server but received: " + clockLine);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            closeClient(); // Close any resources if there's an error.
+            throw new RuntimeException("Error initializing socket", e);
+        }
+    }
+
+    @Override
     public String sendAndReceiveData(String serverName, int portNumber, String data, boolean isContentServer) {
         try {
             out.println(data);  // Sending the request data
@@ -128,35 +165,7 @@ public class SocketNetworkHandler implements NetworkHandler {
             e.printStackTrace();
             return null;
         } finally {
-            if (!isContentServer) {
-                closeClient();
-            }
-        }
-    }
-
-    @Override
-    public int initializeSocket(String serverName, int portNumber) {
-        try {
-            clientSocket = new Socket(serverName, portNumber);
-            out = new PrintWriter(clientSocket.getOutputStream(), true);
-            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-
-            // Parse the Lamport clock value sent by the server immediately after the connection
-            String clockLine = in.readLine();
-
-            if (clockLine == null) {
-                throw new IOException("Server closed the connection without sending LamportClock.");
-            }
-
-            if (clockLine.startsWith("LamportClock: ")) {
-                return Integer.parseInt(clockLine.split(":")[1].trim());
-            } else {
-                throw new IOException("Expected LamportClock value from server but received: " + clockLine);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-            closeClient(); // Close any resources if there's an error.
-            throw new RuntimeException("Error initializing socket", e);
+            closeClient();
         }
     }
 
@@ -170,40 +179,4 @@ public class SocketNetworkHandler implements NetworkHandler {
             e.printStackTrace();
         }
     }
-    @Override
-    public void closeServer() {
-        try {
-            if (serverSocket != null) serverSocket.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    @Override
-    public Socket createConnection(InetSocketAddress address) {
-        try {
-            return new Socket(address.getAddress(), address.getPort());
-        } catch (IOException e) {
-            // Handle the exception here, for example, by logging it or rethrowing as a runtime exception
-            e.printStackTrace(); // Logging the error for now
-            return null; // You can return null or handle this differently based on your needs
-        }
-    }
-
-    @Override
-    public void sendData(Socket socket, String data) {
-        try {
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            out.println(data);
-        } catch (IOException e) {
-            // Handle the exception here, for example, by logging it or rethrowing as a runtime exception
-            e.printStackTrace(); // Logging the error for now
-        }
-    }
-
-    @Override
-    public String receiveData(Socket socket) {
-        return waitForClientData(socket);
-    }
-
 }

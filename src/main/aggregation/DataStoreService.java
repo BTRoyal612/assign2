@@ -23,22 +23,21 @@ import java.lang.reflect.Type;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class DataStoreService {
-    private static volatile DataStoreService instance; // The single instance
-    private Map<String, PriorityQueue<WeatherData>> dataStore = new ConcurrentHashMap<>();
-    private Map<String, Long> timestampStore = new ConcurrentHashMap<>();
-    private final ReentrantLock lock = new ReentrantLock();
-    private final ReentrantLock shutdownLock = new ReentrantLock();
     private static final long SAVE_INTERVAL_SECONDS = 60;
     private static final long CLEANUP_INTERVAL_SECONDS = 21;
     private static final long THRESHOLD = 40000;
-    private static final AtomicInteger activeASCount = new AtomicInteger(0);
-    private final ScheduledExecutorService fileSaveScheduler = Executors.newScheduledThreadPool(1);
-    private final ScheduledExecutorService cleanupScheduler = Executors.newScheduledThreadPool(1);
-
     private static final String DATA_FILE_PATH = "src" + File.separator + "data" + File.separator + "dataStore.json";
     private static final String BACKUP_FILE_PATH = "src" + File.separator + "data" + File.separator + "dataStore_backup.json";
     private static final String TIMESTAMP_FILE_PATH = "src" + File.separator + "data" + File.separator + "timestampStore.json";
     private static final String TIMESTAMP_BACKUP_FILE_PATH = "src" + File.separator + "data" + File.separator + "timestampStore_backup.json";
+    private static final AtomicInteger activeASCount = new AtomicInteger(0);
+    private static volatile DataStoreService instance; // The single instance
+    private final ReentrantLock lock = new ReentrantLock();
+    private final ReentrantLock shutdownLock = new ReentrantLock();
+    private final ScheduledExecutorService fileSaveScheduler = Executors.newScheduledThreadPool(1);
+    private final ScheduledExecutorService cleanupScheduler = Executors.newScheduledThreadPool(1);
+    private Map<String, PriorityQueue<WeatherData>> dataStore = new ConcurrentHashMap<>();
+    private Map<String, Long> timestampStore = new ConcurrentHashMap<>();
 
     // Constructor
     private DataStoreService() {

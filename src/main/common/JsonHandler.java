@@ -2,17 +2,18 @@ package main.common;
 
 import com.google.gson.*;
 
-import java.lang.reflect.Type;
-
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.lang.reflect.Type;
 
 public class JsonHandler {
     private static final Gson gson = new Gson();
+
+    private JsonHandler() {}
 
     public static String readFile(String filePath) throws Exception {
         if (filePath == null) {

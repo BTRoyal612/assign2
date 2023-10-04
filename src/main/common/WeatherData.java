@@ -3,9 +3,9 @@ package main.common;
 import com.google.gson.JsonObject;
 
 public class WeatherData implements Comparable<WeatherData> {
-    private JsonObject data;   // Weather data
     private int lamportTime;   // Lamport clock time
     private String senderID;   // ID of the server from which the data is received
+    private JsonObject data;   // Weather data
 
     public WeatherData(JsonObject data, int lamportTime, String serverId) {
         this.data = data;

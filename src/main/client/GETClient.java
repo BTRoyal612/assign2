@@ -1,17 +1,19 @@
 package main.client;
 
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonObject;
+
 import main.common.JsonHandler;
 import main.network.NetworkHandler;
 import main.network.SocketNetworkHandler;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonObject;
-import main.common.LamportClock;  // Importing the LamportClock class
+import main.common.LamportClock;
+
 import java.util.UUID;
 
 public class GETClient {
     private final NetworkHandler networkHandler;
     private final String senderID;
-    private LamportClock lamportClock = new LamportClock();
+    private LamportClock lamportClock;
 
     /**
      * Constructor for GETClient.
@@ -21,54 +23,7 @@ public class GETClient {
     public GETClient(NetworkHandler networkHandler) {
         this.senderID = UUID.randomUUID().toString();
         this.networkHandler = networkHandler;
-    }
-
-    /**
-     * Main entry point for the GETClient.
-     * @param args Command line arguments, where the first argument specifies the server (format: <serverName>:<portNumber>),
-     *             and the optional second argument is the stationID.
-     */
-    public static void main(String[] args) {
-        if (args.length < 2) {
-            System.out.println("Usage: GETClient <serverName>:<portNumber> <stationID>");
-            return;
-        }
-
-        String[] serverInfo = args[0].split(":");
-        String serverName = serverInfo[0];
-        int portNumber = Integer.parseInt(serverInfo[1]);
-
-        String stationID = args.length == 3 ? args[2] : null;
-
-        NetworkHandler networkHandler = new SocketNetworkHandler();
-        GETClient client = new GETClient(networkHandler);
-        JsonObject response = client.getData(serverName, portNumber, stationID);
-
-        // Interpret and print the response
-        client.interpretResponse(response);
-
-        networkHandler.closeClient();
-    }
-
-    /**
-     * Interprets and prints the response received from the server.
-     * Converts the response JSON to text and prints it to the console.
-     * @param response The JSONObject representing the server's response.
-     */
-    public void interpretResponse(JsonObject response) {
-        if (response == null) {
-            return;
-        }
-
-        try {
-            String weatherDataText = JsonHandler.convertJSONToText(response);
-            String[] lines = weatherDataText.split("\n");
-            for (String line : lines) {
-                System.out.println(line);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Error while converting JSON to text.", e);
-        }
+        this.lamportClock = new LamportClock();
     }
 
     /**
@@ -118,5 +73,53 @@ public class GETClient {
             e.printStackTrace();
         }
         return null;
+    }
+
+    /**
+     * Interprets and prints the response received from the server.
+     * Converts the response JSON to text and prints it to the console.
+     * @param response The JSONObject representing the server's response.
+     */
+    public void interpretResponse(JsonObject response) {
+        if (response == null) {
+            return;
+        }
+
+        try {
+            String weatherDataText = JsonHandler.convertJSONToText(response);
+            String[] lines = weatherDataText.split("\n");
+            for (String line : lines) {
+                System.out.println(line);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error while converting JSON to text.", e);
+        }
+    }
+
+    /**
+     * Main entry point for the GETClient.
+     * @param args Command line arguments, where the first argument specifies the server (format: <serverName>:<portNumber>),
+     * and the optional second argument is the stationID.
+     */
+    public static void main(String[] args) {
+        if (args.length < 2) {
+            System.out.println("Usage: GETClient <serverName>:<portNumber> <stationID>");
+            return;
+        }
+
+        String[] serverInfo = args[0].split(":");
+        String serverName = serverInfo[0];
+        int portNumber = Integer.parseInt(serverInfo[1]);
+
+        String stationID = args.length == 3 ? args[2] : null;
+
+        NetworkHandler networkHandler = new SocketNetworkHandler();
+        GETClient client = new GETClient(networkHandler);
+        JsonObject response = client.getData(serverName, portNumber, stationID);
+
+        // Interpret and print the response
+        client.interpretResponse(response);
+
+        networkHandler.closeClient();
     }
 }

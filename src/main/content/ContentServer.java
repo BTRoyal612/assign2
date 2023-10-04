@@ -1,6 +1,7 @@
 package main.content;
 
 import com.google.gson.JsonObject;
+
 import main.common.JsonHandler;
 import main.common.LamportClock;
 import main.network.NetworkHandler;
@@ -14,10 +15,10 @@ import java.util.concurrent.TimeUnit;
 
 public class ContentServer {
     private final String senderID;
-    private LamportClock lamportClock = new LamportClock();
     private JsonObject weatherData;
-    private ScheduledExecutorService dataUploadScheduler = Executors.newScheduledThreadPool(1);
+    private LamportClock lamportClock;
     private NetworkHandler networkHandler;
+    private ScheduledExecutorService dataUploadScheduler = Executors.newScheduledThreadPool(1);
 
     /**
      * Constructor for ContentServer.
@@ -27,48 +28,7 @@ public class ContentServer {
     public ContentServer(NetworkHandler networkHandler) {
         this.senderID = UUID.randomUUID().toString();
         this.networkHandler = networkHandler;
-    }
-
-    /**
-     * Main entry point for the ContentServer.
-     * @param args Command line arguments, where:
-     *             - The first argument specifies the server name.
-     *             - The second argument is the port number.
-     *             - The third argument is the file path to load weather data from.
-     */
-    public static void main(String[] args) {
-        if (args.length < 3) {
-            System.out.println("Usage: ContentServer <serverName> <portNumber> <filePath>");
-            return;
-        }
-
-        String serverName = args[0];
-        int portNumber;
-        try {
-            portNumber = Integer.parseInt(args[1]);
-        } catch (NumberFormatException e) {
-            System.out.println("Error: Invalid port number provided.");
-            return;
-        }
-        String filePath = args[2];
-
-        // Create an instance of SocketNetworkHandler for actual use.
-        NetworkHandler networkHandler = new SocketNetworkHandler();
-        ContentServer server = new ContentServer(networkHandler);
-
-        if (!server.loadWeatherData(filePath)) {
-            System.out.println("Error: Failed to load weather data from " + filePath);
-            return;
-        }
-
-        server.uploadWeatherData(serverName, portNumber);
-        server.initializeShutdownMonitor();
-
-        // Add shutdown hook to gracefully terminate resources
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            server.dataUploadScheduler.shutdown();  // Assuming dataUploadScheduler is accessible here
-            networkHandler.closeClient();
-        }));
+        this.lamportClock = new LamportClock();
     }
 
     /**
@@ -172,9 +132,7 @@ public class ContentServer {
         monitorThread.start();
     }
 
-    private void shutdown() {
-        System.out.println("Shutting down ContentServer...");
-
+    private void cleanupResources() {
         // Shutdown data upload scheduler
         dataUploadScheduler.shutdown();
         try {
@@ -187,8 +145,53 @@ public class ContentServer {
 
         // Close any other resources such as the network handler
         networkHandler.closeClient();
+    }
+
+    private void shutdown() {
+        System.out.println("Shutting down ContentServer...");
+
+        cleanupResources();
 
         System.out.println("ContentServer shutdown complete.");
         System.exit(0);  // Exit the program
+    }
+
+    /**
+     * Main entry point for the ContentServer.
+     * @param args Command line arguments, where:
+     *             - The first argument specifies the server name.
+     *             - The second argument is the port number.
+     *             - The third argument is the file path to load weather data from.
+     */
+    public static void main(String[] args) {
+        if (args.length < 3) {
+            System.out.println("Usage: ContentServer <serverName> <portNumber> <filePath>");
+            return;
+        }
+
+        String serverName = args[0];
+        int portNumber;
+        try {
+            portNumber = Integer.parseInt(args[1]);
+        } catch (NumberFormatException e) {
+            System.out.println("Error: Invalid port number provided.");
+            return;
+        }
+        String filePath = args[2];
+
+        // Create an instance of SocketNetworkHandler for actual use.
+        NetworkHandler networkHandler = new SocketNetworkHandler();
+        ContentServer server = new ContentServer(networkHandler);
+
+        if (!server.loadWeatherData(filePath)) {
+            System.out.println("Error: Failed to load weather data from " + filePath);
+            return;
+        }
+
+        server.uploadWeatherData(serverName, portNumber);
+        server.initializeShutdownMonitor();
+
+        // Add shutdown hook to gracefully terminate resources
+        Runtime.getRuntime().addShutdownHook(new Thread(server::cleanupResources));
     }
 }

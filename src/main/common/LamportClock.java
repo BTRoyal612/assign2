@@ -1,38 +1,45 @@
 package main.common;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class LamportClock {
-    private int time;
+    private AtomicInteger time;
 
     public LamportClock() {
-        this.time = 0;
+        this.time = new AtomicInteger(0);
     }
 
     // Tick the clock due to an internal event
     public void tick() {
-        time++;
+        time.incrementAndGet();
     }
 
     // Simulates sending a message by returning the current time
     public int send() {
-        tick();
-        return time;
+        return time.incrementAndGet();
     }
 
     // Simulates receiving a message
     public void receive(int receivedTimestamp) {
-        time = Math.max(time, receivedTimestamp) + 1;
+        int current;
+        do {
+            current = time.get();
+            if (receivedTimestamp < current) {
+                break;
+            }
+        } while (!time.compareAndSet(current, receivedTimestamp + 1));
     }
 
     public int getTime() {
-        return time;
+        return time.get();
+    }
+
+    public void setClock(int newValue) {
+        time.set(newValue);
     }
 
     @Override
     public String toString() {
         return "LamportClock [time=" + time + "]";
-    }
-
-    public void setClock(int newValue) {
-        this.time = newValue;
     }
 }
