@@ -22,6 +22,7 @@ public class DataStoreServiceTest {
     @AfterEach
     public void tearDown() {
         // Here we could do some cleanup if needed.
+        dataStoreService.shutdown();
     }
 
     @Test
@@ -74,18 +75,49 @@ public class DataStoreServiceTest {
     }
 
     @Test
-    public void testCleanup() {
-        // This test is more complex because it depends on internal logic and timings.
-        // For a more comprehensive test, you might want to mock System.currentTimeMillis() or refactor the cleanup method to be more testable.
-        // For now, we'll just invoke it and see if it runs without errors.
-        dataStoreService.cleanupData();
+    public void testRetrieveDataByValidStationId() {
+        // Setup
+        String stationId = "TestStation";
+        WeatherData sampleData = new WeatherData(null, 1, "TestSender"); // Assuming WeatherData has an appropriate constructor
+
+        // Add data to the store
+        dataStoreService.putData(stationId, sampleData);
+
+        // Retrieve data by station ID
+        PriorityQueue<WeatherData> retrievedData = dataStoreService.getData(stationId);
+
+        // Assertions
+        assertNotNull(retrievedData, "Retrieved data should not be null");
+        assertFalse(retrievedData.isEmpty(), "Retrieved data should not be empty");
+        assertEquals(sampleData, retrievedData.peek(), "Retrieved data should match the sample data");
     }
 
     @Test
-    public void testShutdown() {
-        // Test the shutdown method. This will terminate the scheduler so be careful when adding more tests after this.
-        // Ideally, this should be the last test.
-        dataStoreService.shutdown();
+    public void testCleanupStaleData() {
+        // Setup
+        String stationId = "TestStation";
+        String senderID = "TestSender";
+        WeatherData sampleData = new WeatherData(null, 1, senderID); // Assuming WeatherData has an appropriate constructor
+
+        // Add data to the store
+        dataStoreService.putData(stationId, sampleData);
+        dataStoreService.putTimestamp(senderID, System.currentTimeMillis());
+
+        // Simulate time passing (greater than 30 seconds)
+        try {
+            Thread.sleep(42000); // Sleep for 42 seconds
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // Trigger the cleanup mechanism
+        dataStoreService.cleanupData(); // Assuming this is how you clean up stale data
+
+        // Try to retrieve the data again
+        PriorityQueue<WeatherData> retrievedData = dataStoreService.getData(stationId);
+
+        // Assertions
+        assertTrue(retrievedData == null || retrievedData.isEmpty(), "Data older than 30 seconds should be cleaned up and not retrievable");
     }
 }
 

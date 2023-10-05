@@ -26,6 +26,24 @@ public class LoadBalancer {
         return this.aggregationServers;
     }
 
+    /**
+     * Adds a new server to the LoadBalancer's rotation.
+     * @param server The server to be added.
+     */
+    public void addServer(AggregationServer server) {
+        if (server != null && !aggregationServers.contains(server)) {
+            aggregationServers.add(server);
+        }
+    }
+
+    /**
+     * Removes a server from the LoadBalancer's rotation.
+     * @param server The server to be removed.
+     */
+    public void removeServer(AggregationServer server) {
+        aggregationServers.remove(server);
+    }
+
     public void start(int port) {
         System.out.println("start lb");
         networkHandler.startServer(port);
@@ -80,9 +98,18 @@ public class LoadBalancer {
             return null; // Return null or handle this scenario as per your needs.
         }
 
-        AggregationServer nextServer = aggregationServers.get(serverIndex);
-        serverIndex = (serverIndex + 1) % aggregationServers.size(); // This ensures round-robin behavior
-        return nextServer;
+        AggregationServer nextServer;
+        int startIndex = serverIndex; // To prevent infinite loops if none of the servers are alive.
+
+        do {
+            nextServer = aggregationServers.get(serverIndex);
+            serverIndex = (serverIndex + 1) % aggregationServers.size(); // This ensures round-robin behavior
+            if (nextServer.isAlive()) {
+                return nextServer;
+            }
+        } while (serverIndex != startIndex); // Ensures we only loop through the servers once.
+
+        return null; // None of the servers are alive.
     }
 
     public void checkServerHealth() {

@@ -43,6 +43,7 @@ public class GETClient {
         lamportClock.setClock(serverLamportClock);
 
         String getRequest = "GET /weather.json HTTP/1.1\r\n" +
+                "User-Agent: ATOMClient/1/0\r\n" +
                 "SenderID: " + senderID + "\r\n" +
                 "LamportClock: " + lamportClock.send() + "\r\n" +
                 (stationID != null ? "StationID: " + stationID + "\r\n" : "") +
@@ -50,16 +51,12 @@ public class GETClient {
 
         try {
             String responseStr = networkHandler.sendAndReceiveData(serverName, portNumber, getRequest, false); // using the stubbed method
-
             System.out.println(responseStr);
 
             if (responseStr == null) {
                 System.out.println("Error: No response received from the server.");
                 return null;
-            } else if (responseStr.contains("500")) {
-                System.out.println("Internal Server Error: The JSON data on the server might be in incorrect format.");
-                return null;
-            } else if (responseStr.contains("204")) {
+            } else if (responseStr.startsWith("HTTP/1.1 204")) {
                 System.out.println("Server response: No Content.");
                 return null;
             }
@@ -96,6 +93,27 @@ public class GETClient {
         }
     }
 
+    public static String[] parseServerInfo(String input) {
+        // Remove the "http://" if present
+        String strippedInput = input.replaceFirst("http://", "");
+
+        // Split server name and domain from port number
+        String[] parts = strippedInput.split(":");
+
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("Invalid server format provided.");
+        }
+
+        // Further split the server part to extract just the server name
+        String[] serverParts = parts[0].split("\\.");
+        if (serverParts.length == 0) {
+            throw new IllegalArgumentException("Invalid server name format provided.");
+        }
+
+        // Return only the server name (without domain) and the port number
+        return new String[] {serverParts[0], parts[1]};
+    }
+
     /**
      * Main entry point for the GETClient.
      * @param args Command line arguments, where the first argument specifies the server (format: <serverName>:<portNumber>),
@@ -107,11 +125,11 @@ public class GETClient {
             return;
         }
 
-        String[] serverInfo = args[0].split(":");
+        String[] serverInfo = parseServerInfo(args[0]);
         String serverName = serverInfo[0];
         int portNumber = Integer.parseInt(serverInfo[1]);
 
-        String stationID = args.length == 3 ? args[2] : null;
+        String stationID = args[1];
 
         NetworkHandler networkHandler = new SocketNetworkHandler();
         GETClient client = new GETClient(networkHandler);

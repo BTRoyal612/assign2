@@ -7,10 +7,10 @@ public class WeatherData implements Comparable<WeatherData> {
     private String senderID;   // ID of the server from which the data is received
     private JsonObject data;   // Weather data
 
-    public WeatherData(JsonObject data, int lamportTime, String serverId) {
+    public WeatherData(JsonObject data, int lamportTime, String senderID) {
         this.data = data;
         this.lamportTime = lamportTime;
-        this.senderID = serverId;
+        this.senderID = senderID;
     }
 
     public JsonObject getData() {

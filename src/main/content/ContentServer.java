@@ -71,7 +71,8 @@ public class ContentServer {
                 // Step 2: Set your Lamport clock using the value from the server
                 lamportClock.receive(serverLamportClock);
 
-                String putRequest = "PUT /uploadData HTTP/1.1\r\n" +
+                String putRequest = "PUT /weather.json HTTP/1.1\r\n" +
+                        "User-Agent: ATOMClient/1/0\r\n" +
                         "Host: " + serverName + "\r\n" +
                         "SenderID: " + senderID + "\r\n" +
                         "LamportClock: " + lamportClock.getTime() + "\r\n" +
@@ -94,7 +95,7 @@ public class ContentServer {
                         }
                     }
 
-                    if (response.contains("200") || response.contains("201")) {
+                    if (response.startsWith("HTTP/1.1 200") || response.startsWith("HTTP/1.1 201")) {
                         System.out.println("Data uploaded successfully.");
                     } else {
                         System.out.println("Error uploading data. Server response: " + response);

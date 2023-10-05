@@ -1,8 +1,6 @@
 package test.aggregation;
 
-import com.google.gson.JsonObject;
 import main.aggregation.AggregationServer;
-import main.common.JsonHandler;
 import org.junit.jupiter.api.*;
 import test.network.StubNetworkHandler;
 
@@ -46,10 +44,10 @@ class AggregationServerTest {
     }
 
     @Test
-    void testHandleGetRequest() {
+    void testHandleGetRequest() throws InterruptedException {
         // First, put weather data into the DataStore
-        JsonObject mockWeatherData = JsonHandler.parseJSONObject("{ \"id\" : \"IDS60901\" }");
-        assertTrue(server.addWeatherData(mockWeatherData, 1, "Server1"));
+        String mockWeatherData = "{ \"id\" : \"IDS60901\" }";
+        assertTrue(server.processWeatherData(mockWeatherData, 1, "Server1"));
 
         // Simulating GET request
         String getRequest = "GET /weather.json HTTP/1.1\r\n" +
@@ -60,7 +58,7 @@ class AggregationServerTest {
 
         // Run server logic for single request
         String responseData = server.handleRequest(stubNetworkHandler.sendAndReceiveData("localhost", 8080, getRequest, false));
-
+        Thread.sleep(1000);
         // Check if the server response is expected based on setup data
         assertTrue(responseData.contains("IDS60901"));
     }
@@ -68,8 +66,8 @@ class AggregationServerTest {
     @Test
     void testGetWithoutStationId() {
         // First, put weather data into the DataStore
-        JsonObject mockWeatherData = JsonHandler.parseJSONObject("{ \"id\" : \"IDS60901\" }");
-        assertTrue(server.addWeatherData(mockWeatherData, 1, "Server1"));
+        String mockWeatherData = "{ \"id\" : \"IDS60901\" }";
+        assertTrue(server.processWeatherData(mockWeatherData, 1, "Server1"));
 
         // Simulating GET request without specifying a station ID
         String getRequest = "GET /weather.json HTTP/1.1\r\n" +
@@ -90,6 +88,7 @@ class AggregationServerTest {
         String putRequest = "PUT /weather.json HTTP/1.1\r\n" +
                 "User-Agent: ATOMClient/1/0\r\n" +
                 "SenderID: 1\r\n" +
+                "LamportClock: 1\r\n" +
                 "Content-Type: application/json\r\n" +
                 "Content-Length: 235\r\n" +
                 "\r\n" +
@@ -100,7 +99,7 @@ class AggregationServerTest {
         stubNetworkHandler.setSimulatedResponse(putRequest);
 
         String expectedResponse = "HTTP/1.1 201 HTTP_CREATED\r\n" +
-                "LamportClock: 2\r\n" +
+                "LamportClock: 3\r\n" +
                 "\r\n";
 
         // Run server logic for single request

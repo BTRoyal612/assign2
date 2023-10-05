@@ -59,15 +59,16 @@ public class ContentServerTest {
             Thread.currentThread().interrupt();
         }
 
-        String expectedData = """
-                PUT /uploadData HTTP/1.1\r
-                Host: testServer\r
-                SenderID: 444c3c63-d0da-4a2f-bfc7-896825043e69\r
-                LamportClock: 1\r
-                Content-Type: application/json\r
-                Content-Length: 99\r
-                \r                                                                                                  
-                {"air_temp":"13.3","cloud":"Partly cloudy","local_date_time_full":"20230715160000","id":"IDS60901"}""";
+        String expectedData =
+                "PUT /weather.json HTTP/1.1\r\n" +
+                "User-Agent: ATOMClient/1/0\r\n" +
+                "Host: testServer\r\n" +
+                "SenderID: 444c3c63-d0da-4a2f-bfc7-896825043e69\r\n" +
+                "LamportClock: 1\r\n" +
+                "Content-Type: application/json\r\n" +
+                "Content-Length: 99\r\n" +
+                "\r\n" +
+                "{\"air_temp\":\"13.3\",\"cloud\":\"Partly cloudy\",\"local_date_time_full\":\"20230715160000\",\"id\":\"IDS60901\"}";
 
         // Regular expression pattern to match everything before and after the ServerID field
         String regex = "(.*?)SenderID: .*?\r\n(.*?$)";

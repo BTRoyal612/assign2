@@ -44,11 +44,23 @@ loadbalancer: all
 loadbalancer1: all
 	@$(JAVA) $(CP) $(LOAD_BALANCER) 4567 1
 
-content: all
-	@$(JAVA) $(CP) $(CONTENT_SERVER) localhost 4567 $(SRC)/main/content/input.txt
+content1: all
+	@$(JAVA) $(CP) $(CONTENT_SERVER) localhost 4567 $(SRC)/main/content/input_v1.txt
 
-client: all
+content2: all
+	@$(JAVA) $(CP) $(CONTENT_SERVER) localhost 4567 $(SRC)/main/content/input_v2.txt
+
+content3: all
+	@$(JAVA) $(CP) $(CONTENT_SERVER) localhost 4567 $(SRC)/main/content/input_v3.txt
+
+client1: all
 	@$(JAVA) $(CP) $(GETCLIENT) localhost:4567 IDS60901
+
+client2: all
+	@$(JAVA) $(CP) $(GETCLIENT) http://localhost.domain.domain:4567 IDS90210
+
+client3: all
+	@$(JAVA) $(CP) $(GETCLIENT) http://localhost:4567 IDS60901
 
 run: all
 	@$(JAVA) $(CP) $(MAIN_CLASS)

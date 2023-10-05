@@ -1,0 +1,17 @@
+id:IDS90210
+name:Sydney (Darling Harbour / Barangaroo)
+state: NSW
+time_zone:AEST
+lat:-33.9
+lon:151.2
+local_date_time:15/03:00pm
+local_date_time_full:20230715150000
+air_temp:20.6
+apparent_t:18.1
+cloud:Cloudy
+dewpt:14.3
+press:1012.4
+rel_hum:68
+wind_dir:E
+wind_spd_kmh:12
+wind_spd_kt:6

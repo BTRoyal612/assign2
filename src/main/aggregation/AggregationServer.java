@@ -13,11 +13,13 @@ import java.io.IOException;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class AggregationServer {
     private static final int DEFAULT_PORT = 4567;
     private static final long THRESHOLD = 40000;
     private static LamportClock sharedClock = new LamportClock();
+    private static AtomicInteger asCount = new AtomicInteger();
     private static DataStoreService dataStoreService = DataStoreService.getInstance();
     private volatile boolean shutdown = false;
     private int port;
@@ -25,6 +27,7 @@ public class AggregationServer {
     private LamportClock lamportClock;
     private NetworkHandler networkHandler;
     private LinkedBlockingQueue<Socket> requestQueue;
+    private String lastReceivedData = null;
 
     /**
      * Constructor for AggregationServer.
@@ -32,13 +35,30 @@ public class AggregationServer {
      */
     public AggregationServer(NetworkHandler networkHandler) {
         this.networkHandler = networkHandler;
-        this.lamportClock = new LamportClock();
         this.requestQueue = new LinkedBlockingQueue<>();
+
+        this.lamportClock = new LamportClock();
+        int sharedTime = sharedClock.getTime();
+        int localTime = lamportClock.getTime();
+
+        if (sharedTime > localTime) {
+            lamportClock.setClock(sharedTime);
+        }
+
         dataStoreService.registerAS();
+        asCount.incrementAndGet();
     }
 
     public int getPort() {
         return this.port;
+    }
+
+    public String getLastReceivedData() {
+        return lastReceivedData;
+    }
+
+    private void setLastReceivedData(String data) {
+        this.lastReceivedData = data;
     }
 
     /**
@@ -66,6 +86,7 @@ public class AggregationServer {
         // Update the shared clock with the local clock's time.
         // This ensures if the local clock had a greater value, the shared clock is updated.
         sharedClock.receive(lamportClock.getTime());
+        lamportClock.tick();
     }
 
     /**
@@ -142,6 +163,10 @@ public class AggregationServer {
         networkHandler.closeServer();
 
         dataStoreService.deregisterAS();
+
+        if (asCount.decrementAndGet() == 0) {
+            sharedClock.setClock(0);
+        }
 
         System.out.println("Shutting down server...");
     }
@@ -236,6 +261,7 @@ public class AggregationServer {
      * @return A string representing the server's response.
      */
     public String handleRequest(String requestData) {
+        setLastReceivedData(requestData);
         String[] lines = requestData.split("\r\n");
         String requestType = lines[0].split(" ")[0].trim();
 
@@ -318,8 +344,8 @@ public class AggregationServer {
 
     private Optional<WeatherData> getWeatherDataForLamportTime(PriorityQueue<WeatherData> queue, int lamportTime) {
         return queue.stream()
-                .filter(data -> data.getLamportTime() <= lamportTime)
-                .findFirst();
+                .filter(data -> data.getLamportTime() <= lamportTime)  // This line ensures the data is less than or equal to provided clock
+                .max(Comparator.comparingInt(WeatherData::getLamportTime));  // This line finds the largest among those
     }
 
     /**
@@ -348,16 +374,39 @@ public class AggregationServer {
         return lastTimestamp == null || (currentTimestamp - lastTimestamp) > THRESHOLD;
     }
 
-    private boolean processWeatherData(String content, int lamportTime, String senderID) {
+    /**
+     * Adds weather data to the server's data store.
+     *
+     * @param content The String representation of the weather data.
+     * @param lamportTime The Lamport timestamp associated with the data.
+     * @param senderID The identifier of the server sending the data.
+     * @return True if the data was added successfully, false otherwise.
+     */
+
+    public boolean processWeatherData(String content, int lamportTime, String senderID) {
         try {
             JsonObject weatherDataJSON = JsonHandler.parseJSONObject(content);
+            String stationId = extractStationId(weatherDataJSON);
+
+            if (!isValidStation(stationId)) {
+                return false;
+            }
+
             WeatherData newWeatherData = new WeatherData(weatherDataJSON, lamportTime, senderID);
-            dataStoreService.putData(senderID, newWeatherData);
+            dataStoreService.putData(stationId, newWeatherData);
             return true;
         } catch (JsonParseException e) {
             System.err.println("JSON Parsing Error: " + e.getMessage());
             return false;
         }
+    }
+
+    private boolean isValidStation(String stationId) {
+        return stationId != null && !stationId.isEmpty();
+    }
+
+    private String extractStationId(JsonObject weatherDataJSON) {
+        return weatherDataJSON.has("id") ? weatherDataJSON.get("id").getAsString() : null;
     }
 
     private String generateResponseBasedOnTimestamp(String senderID) {
@@ -372,33 +421,6 @@ public class AggregationServer {
         } else {
             return formatHttpResponse("200 OK", null);
         }
-    }
-
-    /**
-     * Adds weather data to the server's data store.
-     *
-     * @param weatherDataJSON The JSON representation of the weather data.
-     * @param lamportTime The Lamport timestamp associated with the data.
-     * @param senderID The identifier of the server sending the data.
-     * @return True if the data was added successfully, false otherwise.
-     */
-    public boolean addWeatherData(JsonObject weatherDataJSON, int lamportTime, String senderID) {
-        String stationId = extractStationId(weatherDataJSON);
-
-        if (!isValidStation(stationId)) {
-            return false;
-        }
-
-        dataStoreService.putData(stationId, new WeatherData(weatherDataJSON, lamportTime, senderID));
-        return true;
-    }
-
-    private boolean isValidStation(String stationId) {
-        return stationId != null && !stationId.isEmpty();
-    }
-
-    private String extractStationId(JsonObject weatherDataJSON) {
-        return weatherDataJSON.has("id") ? weatherDataJSON.get("id").getAsString() : null;
     }
 
     private String formatHttpResponse(String status, String jsonData) {
