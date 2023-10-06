@@ -40,8 +40,6 @@ public class IntegrationTest {
             new Thread(() -> {
                 server.start(serverPort);
             }).start();
-
-            System.out.println("Started AggregationServer on port: " + serverPort);
         }
 
         // Initialize the LoadBalancer

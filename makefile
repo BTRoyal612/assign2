@@ -10,7 +10,6 @@ MAIN_CLASSES = $(patsubst %.java,%.class,$(wildcard $(SRC)/main/**/*.java))
 TEST_CLASSES = $(patsubst %.java,%.class,$(wildcard $(SRC)/test/**/*.java))
 
 TEST_MAIN_CLASS = org.junit.platform.console.ConsoleLauncher
-MAIN_CLASS = test.client.GETClientTest
 LOAD_BALANCER = main.aggregation.LoadBalancer
 AGGREGATION_SERVER = main.aggregation.AggregationServer
 CONTENT_SERVER = main.content.ContentServer
@@ -61,8 +60,5 @@ client2: all
 
 client3: all
 	@$(JAVA) $(CP) $(GETCLIENT) http://localhost:4567 IDS60901
-
-run: all
-	@$(JAVA) $(CP) $(MAIN_CLASS)
 
 .PHONY: all clean test

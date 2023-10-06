@@ -69,7 +69,14 @@ public class SocketNetworkHandler implements NetworkHandler {
             // Read body
             if (contentLength > 0) {
                 char[] bodyChars = new char[contentLength];
-                in.read(bodyChars, 0, contentLength);
+                int bytesRead = 0;
+                while (bytesRead < contentLength) {
+                    int result = in.read(bodyChars, bytesRead, contentLength - bytesRead);
+                    if (result == -1) {
+                        break; // end of stream reached
+                    }
+                    bytesRead += result;
+                }
                 requestBuilder.append(bodyChars);
             }
 

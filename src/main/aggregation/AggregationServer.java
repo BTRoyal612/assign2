@@ -94,6 +94,7 @@ public class AggregationServer {
      * @param portNumber The port number on which the server will listen for incoming connections.
      */
     public void start(int portNumber) {
+        System.out.println("Started AggregationServer on port: " + portNumber);
         this.port = portNumber;
         networkHandler.startServer(portNumber); // Starting the server socket
 
@@ -101,6 +102,7 @@ public class AggregationServer {
     }
 
     public void startAlone(int portNumber) {
+        System.out.println("Started AggregationServer on port: " + portNumber);
         this.port = portNumber;
         networkHandler.startServer(portNumber); // Starting the server socket
 
@@ -139,9 +141,11 @@ public class AggregationServer {
         Thread monitorThread = new Thread(() -> {
             Scanner scanner = new Scanner(System.in);
             while (true) {
+                System.out.println("Enter 'SHUTDOWN' to terminate the LoadBalancer.");
                 String input = scanner.nextLine();
                 if ("SHUTDOWN".equalsIgnoreCase(input)) {
                     shutdown();
+                    scanner.close();
                     break;
                 }
             }
@@ -168,7 +172,7 @@ public class AggregationServer {
             sharedClock.setClock(0);
         }
 
-        System.out.println("Shutting down server...");
+        System.out.println("Shutting down AggregationServer on port " + getPort());
     }
 
     /**
@@ -240,6 +244,7 @@ public class AggregationServer {
         try {
             String requestData = networkHandler.waitForClientData(clientSocket);
             System.out.println(requestData);
+            System.out.println();
             if (requestData != null) {
                 String responseData = handleRequest(requestData);
                 networkHandler.sendResponseToClient(responseData, clientSocket);
@@ -326,7 +331,7 @@ public class AggregationServer {
         Optional<WeatherData> targetData = getWeatherDataForLamportTime(weatherDataQueue, lamportTime);
 
         return targetData
-                .map(weatherData -> formatHttpResponse("200 OK", weatherData.getData().toString()))
+                .map(weatherData -> formatHttpResponse("200 OK", weatherData.getData()))
                 .orElse(formatHttpResponse("204 No Content", null));
     }
 
@@ -359,8 +364,12 @@ public class AggregationServer {
         int lamportTime = getLamportTimeFromHeaders(headers);
 
         String senderID = headers.get("SenderID");
-        if (isValidSender(senderID) && processWeatherData(content, lamportTime, senderID)) {
-            return generateResponseBasedOnTimestamp(senderID);
+        if (isValidSender(senderID)) {
+            if (processWeatherData(content, lamportTime, senderID)) {
+                return generateResponseBasedOnTimestamp(senderID);
+            } else {
+                return formatHttpResponse("500 Internal Server Error", null);
+            }
         } else {
             return formatHttpResponse("400 Bad Request", null);
         }
@@ -423,7 +432,7 @@ public class AggregationServer {
         }
     }
 
-    private String formatHttpResponse(String status, String jsonData) {
+    private String formatHttpResponse(String status, JsonObject jsonData) {
         StringBuilder response = new StringBuilder();
         lamportClock.tick();
         synchronizeWithSharedClock();
@@ -432,10 +441,11 @@ public class AggregationServer {
         response.append("LamportClock: ").append(lamportClock.getTime()).append("\r\n");
 
         if (jsonData != null) {
+            String prettyData = JsonHandler.prettyPrint(jsonData);
             response.append("Content-Type: application/json\r\n");
-            response.append("Content-Length: ").append(jsonData.length()).append("\r\n");
+            response.append("Content-Length: ").append(prettyData.length()).append("\r\n");
             response.append("\r\n");
-            response.append(jsonData);
+            response.append(prettyData);
         } else {
             response.append("\r\n");
         }

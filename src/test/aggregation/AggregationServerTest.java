@@ -31,7 +31,7 @@ class AggregationServerTest {
         stubNetworkHandler.setSimulatedResponse(getRequest);
 
         String expectedResponse = "HTTP/1.1 204 No Content\r\n" +
-                "LamportClock: 3\r\n" +
+                "LamportClock: 5\r\n" +
                 "\r\n";
 
         // Run server logic for single request
@@ -99,7 +99,7 @@ class AggregationServerTest {
         stubNetworkHandler.setSimulatedResponse(putRequest);
 
         String expectedResponse = "HTTP/1.1 201 HTTP_CREATED\r\n" +
-                "LamportClock: 3\r\n" +
+                "LamportClock: 5\r\n" +
                 "\r\n";
 
         // Run server logic for single request

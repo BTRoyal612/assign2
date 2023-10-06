@@ -36,38 +36,56 @@ public class GETClient {
      * @return A JSONObject containing the server's response or null in case of an error.
      */
     public JsonObject getData(String serverName, int portNumber, String stationID) {
-        // Step 1: Initialize the socket and get the Lamport clock value from the server
-        int serverLamportClock = networkHandler.initializeSocket(serverName, portNumber);
+        final int MAX_RETRIES = 3;
+        int retries = 0;
 
-        // Step 2: Set your Lamport clock using the value from the server
-        lamportClock.setClock(serverLamportClock);
+        while (retries < MAX_RETRIES) {
+            try {
+                // Step 1: Initialize the socket and get the Lamport clock value from the server
+                int serverLamportClock = networkHandler.initializeSocket(serverName, portNumber);
 
-        String getRequest = "GET /weather.json HTTP/1.1\r\n" +
-                "User-Agent: ATOMClient/1/0\r\n" +
-                "SenderID: " + senderID + "\r\n" +
-                "LamportClock: " + lamportClock.send() + "\r\n" +
-                (stationID != null ? "StationID: " + stationID + "\r\n" : "") +
-                "\r\n";
+                // Step 2: Set your Lamport clock using the value from the server
+                lamportClock.setClock(serverLamportClock);
 
-        try {
-            String responseStr = networkHandler.sendAndReceiveData(serverName, portNumber, getRequest, false); // using the stubbed method
-            System.out.println(responseStr);
+                String getRequest = "GET /weather.json HTTP/1.1\r\n" +
+                        "User-Agent: ATOMClient/1/0\r\n" +
+                        "SenderID: " + senderID + "\r\n" +
+                        "LamportClock: " + lamportClock.send() + "\r\n" +
+                        (stationID != null ? "StationID: " + stationID + "\r\n" : "") +
+                        "\r\n";
 
-            if (responseStr == null) {
-                System.out.println("Error: No response received from the server.");
+                String response = networkHandler.sendAndReceiveData(serverName, portNumber, getRequest, false); // using the stubbed method
+                System.out.println(response);
+                System.out.println();
+
+                if (response == null) {
+                    System.out.println("Error: No response received from the server.");
+                    System.out.println();
+                    return null;
+                } else if (response.startsWith("HTTP/1.1 204")) {
+                    System.out.println("Server response: No Content.");
+                    System.out.println();
+                    return null;
+                }
+
+                return JsonHandler.parseJSONObject(JsonHandler.extractJSONContent(response));
+            } catch (JsonParseException e) {
+                System.out.println("Error parsing the server's JSON response: " + e.getMessage());
                 return null;
-            } else if (responseStr.startsWith("HTTP/1.1 204")) {
-                System.out.println("Server response: No Content.");
-                return null;
+            } catch (Exception e) {
+                System.out.println("Error: " + e.getMessage());
+                if (++retries < MAX_RETRIES) {
+                    System.out.println("Retry in 15 seconds...");
+                    try {
+                        Thread.sleep(15000);
+                    } catch (InterruptedException ie) {
+                        System.out.println("Retry interrupted: " + ie.getMessage());
+                    }
+                } else {
+                    System.out.println("Max retries reached.");
+                    return null;
+                }
             }
-
-            return JsonHandler.parseJSONObject(JsonHandler.extractJSONContent(responseStr));
-        } catch (JsonParseException e) {
-            System.out.println("Error parsing the server's JSON response: " + e.getMessage());
-            e.printStackTrace();
-        } catch (Exception e) {
-            System.out.println("Error: " + e.getMessage());
-            e.printStackTrace();
         }
         return null;
     }
@@ -85,8 +103,10 @@ public class GETClient {
         try {
             String weatherDataText = JsonHandler.convertJSONToText(response);
             String[] lines = weatherDataText.split("\n");
+            System.out.println();
             for (String line : lines) {
                 System.out.println(line);
+                Thread.sleep(500);
             }
         } catch (Exception e) {
             throw new RuntimeException("Error while converting JSON to text.", e);

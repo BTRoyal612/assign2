@@ -66,9 +66,14 @@ public class ContentServerTest {
                 "SenderID: 444c3c63-d0da-4a2f-bfc7-896825043e69\r\n" +
                 "LamportClock: 1\r\n" +
                 "Content-Type: application/json\r\n" +
-                "Content-Length: 99\r\n" +
+                "Content-Length: 116\r\n" +
                 "\r\n" +
-                "{\"air_temp\":\"13.3\",\"cloud\":\"Partly cloudy\",\"local_date_time_full\":\"20230715160000\",\"id\":\"IDS60901\"}";
+                "{\n"+
+                "  \"id\": \"IDS60901\",\n" +
+                "  \"local_date_time_full\": \"20230715160000\",\n" +
+                "  \"air_temp\": \"13.3\",\n" +
+                "  \"cloud\": \"Partly cloudy\"\n" +
+                "}";
 
         // Regular expression pattern to match everything before and after the ServerID field
         String regex = "(.*?)SenderID: .*?\r\n(.*?$)";

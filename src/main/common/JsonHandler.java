@@ -5,7 +5,7 @@ import com.google.gson.*;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.lang.reflect.Type;
@@ -40,7 +40,7 @@ public class JsonHandler {
         }
 
         String[] lines = inputText.split("\n");
-        Map<String, Object> dataMap = new HashMap<>();
+        Map<String, Object> dataMap = new LinkedHashMap<>();
 
         for (String line : lines) {
             String[] parts = line.split(":", 2);  // Split by the first occurrence of ':'
@@ -110,5 +110,10 @@ public class JsonHandler {
     // Deserialize a JSON string to an object
     public static <T> T deserializeObject(String jsonString, Type type) throws JsonSyntaxException {
         return gson.fromJson(jsonString, type);
+    }
+
+    public static String prettyPrint(JsonObject jsonObject) {
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        return gson.toJson(jsonObject);
     }
 }

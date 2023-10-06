@@ -33,8 +33,8 @@ public class DataStoreServiceTest {
 
     @Test
     public void testDataOperations() {
-        String key = "TestStation";
-        WeatherData weatherData = new WeatherData(null, 1, "TestSender"); // Assuming WeatherData has an empty constructor, or use another way to instantiate
+        String key = "TestStation1";
+        WeatherData weatherData = new WeatherData(null, 1, "1"); // Assuming WeatherData has an empty constructor, or use another way to instantiate
 
         dataStoreService.putData(key, weatherData);
         PriorityQueue<WeatherData> data = dataStoreService.getData(key);
@@ -46,7 +46,7 @@ public class DataStoreServiceTest {
 
     @Test
     public void testTimestampOperations() {
-        String key = "TestSender";
+        String key = "TestSender2";
         long timestamp = System.currentTimeMillis();
 
         dataStoreService.putTimestamp(key, timestamp);
@@ -58,10 +58,10 @@ public class DataStoreServiceTest {
 
     @Test
     public void testRemoveOperations() {
-        String dataKey = "TestDataKey";
-        String timestampKey = "TestTimestampKey";
+        String dataKey = "TestDataKey3";
+        String timestampKey = "TestTimestampKey3";
 
-        WeatherData weatherData = new WeatherData(null, 1, "TestSender"); // Instantiate as necessary
+        WeatherData weatherData = new WeatherData(null, 1, "TestSender3"); // Instantiate as necessary
         long timestamp = System.currentTimeMillis();
 
         dataStoreService.putData(dataKey, weatherData);
@@ -77,8 +77,8 @@ public class DataStoreServiceTest {
     @Test
     public void testRetrieveDataByValidStationId() {
         // Setup
-        String stationId = "TestStation";
-        WeatherData sampleData = new WeatherData(null, 1, "TestSender"); // Assuming WeatherData has an appropriate constructor
+        String stationId = "TestStation4";
+        WeatherData sampleData = new WeatherData(null, 1, "TestSender4"); // Assuming WeatherData has an appropriate constructor
 
         // Add data to the store
         dataStoreService.putData(stationId, sampleData);
@@ -95,8 +95,8 @@ public class DataStoreServiceTest {
     @Test
     public void testCleanupStaleData() {
         // Setup
-        String stationId = "TestStation";
-        String senderID = "TestSender";
+        String stationId = "TestStation5";
+        String senderID = "TestSender5";
         WeatherData sampleData = new WeatherData(null, 1, senderID); // Assuming WeatherData has an appropriate constructor
 
         // Add data to the store

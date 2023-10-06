@@ -71,15 +71,16 @@ public class ContentServer {
                 // Step 2: Set your Lamport clock using the value from the server
                 lamportClock.receive(serverLamportClock);
 
+                String weatherDataString = JsonHandler.prettyPrint(weatherData);
                 String putRequest = "PUT /weather.json HTTP/1.1\r\n" +
                         "User-Agent: ATOMClient/1/0\r\n" +
                         "Host: " + serverName + "\r\n" +
                         "SenderID: " + senderID + "\r\n" +
                         "LamportClock: " + lamportClock.getTime() + "\r\n" +
                         "Content-Type: application/json\r\n" +
-                        "Content-Length: " + weatherData.toString().length() + "\r\n" +
+                        "Content-Length: " + weatherDataString.length() + "\r\n" +
                         "\r\n" +
-                        weatherData;
+                        weatherDataString;
 
                 String response = networkHandler.sendAndReceiveData(serverName, portNumber, putRequest, true);
                 System.out.println(response);
@@ -98,9 +99,10 @@ public class ContentServer {
                     if (response.startsWith("HTTP/1.1 200") || response.startsWith("HTTP/1.1 201")) {
                         System.out.println("Data uploaded successfully.");
                     } else {
-                        System.out.println("Error uploading data. Server response: " + response);
+                        System.out.println("Error uploading data.");
                     }
                 }
+                System.out.println();
             } catch (Exception e) {
                 System.out.println("Error while connecting to the server: " + e.getMessage());
                 System.out.println("Retry in 15 second.");
@@ -126,6 +128,7 @@ public class ContentServer {
                 String input = scanner.nextLine();
                 if ("SHUTDOWN".equalsIgnoreCase(input)) {
                     shutdown();
+                    scanner.close();
                     break;
                 }
             }

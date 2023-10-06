@@ -7,7 +7,7 @@ import java.net.Socket;
 public class StubNetworkHandler implements NetworkHandler {
     private String lastSentData;
     private int sentDataCount = 0;
-    private String simulatedResponse = "200 OK"; // Default simulated response for sendData
+    private String simulatedResponse = "HTTP/1.1 200 OK"; // Default simulated response for sendData
 
     @Override
     public void startServer(int portNumber) {

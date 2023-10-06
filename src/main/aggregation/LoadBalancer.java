@@ -45,17 +45,14 @@ public class LoadBalancer {
     }
 
     public void start(int port) {
-        System.out.println("start lb");
+        System.out.println("Started LoadBalancer on port: " + port);
         networkHandler.startServer(port);
 
-        System.out.println("start lb health check");
         healthCheckScheduler = Executors.newScheduledThreadPool(1);
         healthCheckScheduler.scheduleAtFixedRate(this::checkServerHealth, 0, 30, TimeUnit.SECONDS);
 
-        System.out.println("start shutdown monitor");
         initializeShutdownMonitor();
 
-        System.out.println("start request listen");
         initializeAcceptThread();
     }
 
@@ -65,7 +62,6 @@ public class LoadBalancer {
                 try {
                     Socket clientSocket = networkHandler.acceptConnection();
                     if (clientSocket != null) {
-                        System.out.println("lb receive request");
                         handleClientSocket(clientSocket);
                     }
                 } catch (IOException e) {
@@ -204,8 +200,6 @@ public class LoadBalancer {
             new Thread(() -> {
                 server.start(serverPort);
             }).start();
-
-            System.out.println("Started AggregationServer on port: " + serverPort);
         }
 
         // Initialize the LoadBalancer

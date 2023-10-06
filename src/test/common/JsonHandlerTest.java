@@ -90,4 +90,28 @@ class JsonHandlerTest {
             assertTrue(e instanceof com.google.gson.JsonParseException);
         }
     }
+
+    @Test
+    public void testPrettyPrint() {
+        // Create a sample JsonObject
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("id", "IDS60901");
+        jsonObject.addProperty("name", "Adelaide (West Terrace / ngayirdapira)");
+        jsonObject.addProperty("state", "SA");
+        jsonObject.addProperty("air_temp", 13.3);
+
+        // Use the method to get the pretty printed version
+        String pretty = JsonHandler.prettyPrint(jsonObject);
+
+        // Create the expected pretty printed version
+        String expected = "{\n" +
+                "  \"id\": \"IDS60901\",\n" +
+                "  \"name\": \"Adelaide (West Terrace / ngayirdapira)\",\n" +
+                "  \"state\": \"SA\",\n" +
+                "  \"air_temp\": 13.3\n" +
+                "}";
+
+        // Assert they are equal
+        assertEquals(expected, pretty);
+    }
 }
