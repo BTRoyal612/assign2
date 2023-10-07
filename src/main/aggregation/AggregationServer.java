@@ -167,6 +167,7 @@ public class AggregationServer {
             System.out.println(getPort() + " received external socket from LoadBalancer: " + clientSocket);
 
             // Send the current Lamport clock value to the client.
+            synchronizeWithSharedClock();
             String clockValue = "LamportClock: " + lamportClock.getTime();
             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
             out.println(clockValue);
@@ -220,7 +221,9 @@ public class AggregationServer {
 
         if (asCount.decrementAndGet() <= 0) {
             sharedClock.setClock(0);
-            asCount.set(0);
+            if (asCount.get() < 0) {
+                asCount.set(0);
+            }
         }
 
         System.out.println("Shutting down AggregationServer on port " + getPort());
@@ -238,6 +241,7 @@ public class AggregationServer {
                         System.out.println("Accepted connection from: " + clientSocket);
 
                         // Send the current Lamport clock value to the client right after accepting the connection
+                        synchronizeWithSharedClock();
                         String clockValue = "LamportClock: " + lamportClock.getTime();
                         PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
                         out.println(clockValue);
@@ -514,7 +518,5 @@ public class AggregationServer {
         NetworkHandler networkHandler = new SocketNetworkHandler();
         AggregationServer server = new AggregationServer(networkHandler);
         server.startAlone(port);
-
-        System.exit(0);  // Exit the program
     }
 }

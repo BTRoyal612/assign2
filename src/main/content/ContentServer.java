@@ -198,7 +198,5 @@ public class ContentServer {
 
         // Add shutdown hook to gracefully terminate resources
         Runtime.getRuntime().addShutdownHook(new Thread(server::cleanupResources));
-
-        System.exit(0);  // Exit the program
     }
 }

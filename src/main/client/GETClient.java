@@ -171,7 +171,5 @@ public class GETClient {
         client.interpretResponse(response);
 
         networkHandler.closeClient();
-
-        System.exit(0);  // Exit the program
     }
 }

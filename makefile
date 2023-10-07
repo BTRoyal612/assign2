@@ -29,7 +29,7 @@ $(SRC)/test/%.class: $(SRC)/test/%.java
 test: $(TEST_CLASSES)
 
 test_run: test
-	@$(JAVA) $(CPTEST) $(TEST_MAIN_CLASS) --scan-class-path
+	@$(JAVA) $(CPTEST) $(TEST_MAIN_CLASS) --details=verbose --scan-class-path
 
 clean:
 	@find . -name "*.class" -exec rm {} +

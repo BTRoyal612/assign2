@@ -213,7 +213,5 @@ public class LoadBalancer {
 
         // Start the LoadBalancer
         loadBalancer.start(port);
-
-        System.exit(0);  // Exit the program
     }
 }
