@@ -98,8 +98,10 @@ public class ContentServer {
 
                     if (response.startsWith("HTTP/1.1 200") || response.startsWith("HTTP/1.1 201")) {
                         System.out.println("Data uploaded successfully.");
-                    } else {
-                        System.out.println("Error uploading data.");
+                    } else if (response.startsWith("HTTP/1.1 503")) {
+                        System.out.println("Server response: Service Unavailable.");
+                    } else if (response.startsWith("HTTP/1.1 500")) {
+                        System.out.println("Server response: Invalid JSON weather data.");
                     }
                 }
                 System.out.println();
@@ -151,13 +153,12 @@ public class ContentServer {
         networkHandler.closeClient();
     }
 
-    private void shutdown() {
+    public void shutdown() {
         System.out.println("Shutting down ContentServer...");
 
         cleanupResources();
 
         System.out.println("ContentServer shutdown complete.");
-        System.exit(0);  // Exit the program
     }
 
     /**
@@ -197,5 +198,7 @@ public class ContentServer {
 
         // Add shutdown hook to gracefully terminate resources
         Runtime.getRuntime().addShutdownHook(new Thread(server::cleanupResources));
+
+        System.exit(0);  // Exit the program
     }
 }

@@ -21,7 +21,7 @@ public class AggregationServer {
     private static LamportClock sharedClock = new LamportClock();
     private static AtomicInteger asCount = new AtomicInteger();
     private static DataStoreService dataStoreService = DataStoreService.getInstance();
-    private volatile boolean shutdown = false;
+    private volatile boolean shutdown;
     private int port;
     private Thread acceptThread;
     private LamportClock lamportClock;
@@ -45,8 +45,6 @@ public class AggregationServer {
             lamportClock.setClock(sharedTime);
         }
 
-        dataStoreService.registerAS();
-        asCount.incrementAndGet();
     }
 
     public int getPort() {
@@ -96,21 +94,67 @@ public class AggregationServer {
     public void start(int portNumber) {
         System.out.println("Started AggregationServer on port: " + portNumber);
         this.port = portNumber;
+        this.shutdown = false;
+
+        if (acceptThread != null && acceptThread.isAlive()) {
+            throw new RuntimeException("Server is still running or hasn't been properly shut down");
+        }
+
         networkHandler.startServer(portNumber); // Starting the server socket
 
+        long startTime = System.currentTimeMillis();
+        while (!isAlive() && (System.currentTimeMillis() - startTime) < 5000) {
+            // Wait up to 5 seconds for server to be alive
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                System.out.println("Interrupted while waiting for server to start");
+            }
+        }
+        if (!isAlive()) {
+            throw new RuntimeException("Server did not start successfully");
+        }
+
         processClientRequests();                // Start processing client requests
+
+        dataStoreService.registerAS();
+        asCount.incrementAndGet();
     }
 
     public void startAlone(int portNumber) {
         System.out.println("Started AggregationServer on port: " + portNumber);
         this.port = portNumber;
+        this.shutdown = false;
+
+        if (acceptThread != null && acceptThread.isAlive()) {
+            throw new RuntimeException("Server is still running or hasn't been properly shut down");
+        }
+
         networkHandler.startServer(portNumber); // Starting the server socket
+
+        long startTime = System.currentTimeMillis();
+        while (!isAlive() && (System.currentTimeMillis() - startTime) < 5000) {
+            // Wait up to 5 seconds for server to be alive
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                System.out.println("Interrupted while waiting for server to start");
+            }
+        }
+        if (!isAlive()) {
+            throw new RuntimeException("Server did not start successfully");
+        }
 
         initializeShutdownMonitor();            // Start the shutdown monitor thread
 
         initializeAcceptThread();               // Start the client acceptance thread
 
         processClientRequests();                // Start processing client requests
+
+        dataStoreService.registerAS();
+        asCount.incrementAndGet();
     }
 
     /**
@@ -162,14 +206,21 @@ public class AggregationServer {
         // Interrupt the acceptThread to break the potential blocking call
         if(acceptThread != null) {
             acceptThread.interrupt();
+            try {
+                acceptThread.join(); // Ensure the thread is fully terminated
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                System.out.println("Error while waiting for acceptThread to finish");
+            }
         }
 
         networkHandler.closeServer();
 
         dataStoreService.deregisterAS();
 
-        if (asCount.decrementAndGet() == 0) {
+        if (asCount.decrementAndGet() <= 0) {
             sharedClock.setClock(0);
+            asCount.set(0);
         }
 
         System.out.println("Shutting down AggregationServer on port " + getPort());
@@ -221,8 +272,6 @@ public class AggregationServer {
             }
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            networkHandler.closeServer();
         }
     }
 
@@ -465,5 +514,7 @@ public class AggregationServer {
         NetworkHandler networkHandler = new SocketNetworkHandler();
         AggregationServer server = new AggregationServer(networkHandler);
         server.startAlone(port);
+
+        System.exit(0);  // Exit the program
     }
 }

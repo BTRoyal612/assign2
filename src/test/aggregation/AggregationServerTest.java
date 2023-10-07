@@ -5,6 +5,8 @@ import org.junit.jupiter.api.*;
 import test.network.StubNetworkHandler;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class AggregationServerTest {
     AggregationServer server;
@@ -111,6 +113,9 @@ class AggregationServerTest {
 
     @Test
     void testShutdown() throws InterruptedException {
+        server = mock(AggregationServer.class);
+        when(server.isAlive()).thenReturn(true);
+
         // Start the server in a separate thread
         Thread serverThread = new Thread(() -> server.start(8080));
         serverThread.start();

@@ -78,6 +78,12 @@ public class LoadBalancer {
             if (nextServer != null) {
                 // Pass the client socket to the chosen AS.
                 nextServer.acceptExternalSocket(clientSocket);
+            } else {
+                 // No available AS, send an error or null response to the client.
+                String errorResponse = "HTTP/1.1 503 Service Unavailable\r\n" +
+                                    "LamportClock: -1\r\n" +
+                                    "\r\n";
+                networkHandler.sendResponseToClient(errorResponse, clientSocket); // Assuming networkHandler is accessible here.
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -108,11 +114,12 @@ public class LoadBalancer {
         return null; // None of the servers are alive.
     }
 
-    public void checkServerHealth() {
+    public synchronized void checkServerHealth() {
         Iterator<AggregationServer> iterator = aggregationServers.iterator();
         while (iterator.hasNext()) {
             AggregationServer server = iterator.next();
             if (!server.isAlive()) {
+                System.out.println("Remove Aggregation Server on port: " + server.getPort());
                 iterator.remove(); // Removes unreachable servers from the list.
             }
         }
@@ -125,7 +132,7 @@ public class LoadBalancer {
                 System.out.println("Enter 'SHUTDOWN' to terminate the LoadBalancer.");
                 String input = scanner.nextLine();
                 if ("SHUTDOWN".equalsIgnoreCase(input)) {
-                    shutdownLoadBalancer();
+                    shutdown();
                     scanner.close();
                     break;
                 }
@@ -134,16 +141,13 @@ public class LoadBalancer {
         monitorThread.start();
     }
 
-    private void shutdownLoadBalancer() {
+    public void shutdown() {
         System.out.println("Shutting down the LoadBalancer...");
+
+        checkServerHealth();
 
         // 0. Set the shutdown flag to true to stop the while loop in acceptThread
         shutdown = true;
-
-        // 1. Signal each AggregationServer to shut down gracefully.
-        for (AggregationServer server : aggregationServers) {
-            server.shutdown();
-        }
 
         // 2. Stop the acceptThread
         if (acceptThread != null) {
@@ -155,13 +159,15 @@ public class LoadBalancer {
             healthCheckScheduler.shutdownNow();
         }
 
+        // 1. Signal each AggregationServer to shut down gracefully.
+        for (AggregationServer server : aggregationServers) {
+            server.shutdown();
+        }
+
         // 4. Close Load Balancer
         networkHandler.closeServer();
 
         System.out.println("LoadBalancer and all managed AggregationServers have been shut down.");
-
-        // 5. Exit the program
-        System.exit(0);
     }
 
     public static void main(String[] args) {
@@ -207,5 +213,7 @@ public class LoadBalancer {
 
         // Start the LoadBalancer
         loadBalancer.start(port);
+
+        System.exit(0);  // Exit the program
     }
 }

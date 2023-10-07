@@ -99,6 +99,15 @@ public class DataStoreService {
 
     private <T> T loadObjectFromFile(String filePath, String backupFilePath, Type type) {
         try {
+            // First, check if the file exists. If it doesn't, create an empty one.
+            File file = new File(filePath);
+            if (!file.exists()) {
+                file.getParentFile().mkdirs(); // Creates the directory structure if not present.
+                file.createNewFile();
+                // Assuming you want an empty JSON representation (i.e., an empty map) as the content.
+                Files.write(Paths.get(filePath), "{}".getBytes());
+            }
+
             String jsonData = new String(Files.readAllBytes(Paths.get(filePath)));
             return JsonHandler.deserializeObject(jsonData, type);
         } catch (IOException e) {
@@ -257,7 +266,8 @@ public class DataStoreService {
     public void deregisterAS() {
         shutdownLock.lock();
         try {
-            if (activeASCount.decrementAndGet() == 0) {
+            if (activeASCount.decrementAndGet() <= 0) {
+                activeASCount.set(0);
                 shutdown();
             }
         } finally {
@@ -265,42 +275,53 @@ public class DataStoreService {
         }
     }
 
+    public void clearAllData() {
+        lock.lock();
+        try {
+            // Clear the data stores
+            dataStore.clear();
+            timestampStore.clear();
+
+            // Remove the associated files
+            Files.deleteIfExists(Paths.get(DATA_FILE_PATH));
+            Files.deleteIfExists(Paths.get(BACKUP_FILE_PATH));
+            Files.deleteIfExists(Paths.get(TIMESTAMP_FILE_PATH));
+            Files.deleteIfExists(Paths.get(TIMESTAMP_BACKUP_FILE_PATH));
+
+        } catch (IOException e) {
+            System.out.println("Error while removing the files.");
+            e.printStackTrace();
+        } finally {
+            lock.unlock();
+        }
+    }
+
     public void shutdown() {
         System.out.println("Shutting down DataStoreService...");
 
-        // 1. Save the data one last time
-        saveDataToFile();
+        shutdownExecutor(fileSaveScheduler, "fileSaveScheduler");
+        shutdownExecutor(cleanupScheduler, "cleanupScheduler");
 
-        // 2. Run cleanup operations one last time
-        cleanupData();
-
-        // 3. Shutdown the scheduled executors
-        try {
-            fileSaveScheduler.shutdown();
-            fileSaveScheduler.awaitTermination(30, TimeUnit.SECONDS); // wait for ongoing tasks to finish, but max out at 30 seconds
-        } catch (InterruptedException e) {
-            System.out.println("Interrupted while waiting for fileSaveScheduler to terminate.");
-            Thread.currentThread().interrupt();  // re-interrupt the thread
-        } finally {
-            if (!fileSaveScheduler.isTerminated()) {
-                System.out.println("Forcing fileSaveScheduler to shutdown immediately.");
-                fileSaveScheduler.shutdownNow();  // force shutdown if tasks didn't finish in time
-            }
-        }
-
-        try {
-            cleanupScheduler.shutdown();
-            cleanupScheduler.awaitTermination(30, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            System.out.println("Interrupted while waiting for cleanupScheduler to terminate.");
-            Thread.currentThread().interrupt();
-        } finally {
-            if (!cleanupScheduler.isTerminated()) {
-                System.out.println("Forcing cleanupScheduler to shutdown immediately.");
-                cleanupScheduler.shutdownNow();
-            }
-        }
+        clearAllData();
 
         System.out.println("DataStoreService has been shut down.");
+    }
+
+    private void shutdownExecutor(ScheduledExecutorService executor, String executorName) {
+        try {
+            executor.shutdown();
+            if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
+                System.out.println(executorName + " didn't shut down in the expected time. Forcing shutdown...");
+                executor.shutdownNow();
+
+                if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
+                    System.out.println(executorName + " didn't terminate.");
+                }
+            }
+        } catch (InterruptedException e) {
+            System.out.println("Interrupted while waiting for " + executorName + " to terminate.");
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 }

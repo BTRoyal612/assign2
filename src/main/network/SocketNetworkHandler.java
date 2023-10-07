@@ -3,6 +3,7 @@ package main.network;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 
 public class SocketNetworkHandler implements NetworkHandler {
@@ -14,6 +15,7 @@ public class SocketNetworkHandler implements NetworkHandler {
     // For Aggregation Server and Load Balancer
     @Override
     public void startServer(int portNumber) {
+        closeServer();
         try {
             serverSocket = new ServerSocket(portNumber);
         } catch (Exception e) {
@@ -24,19 +26,27 @@ public class SocketNetworkHandler implements NetworkHandler {
     // New method to accept a client connection
     @Override
     public Socket acceptConnection() throws IOException {
-        if (serverSocket == null) {
-            throw new IllegalStateException("Server not started");
+        if (serverSocket == null || serverSocket.isClosed()) {
+            throw new IllegalStateException("Server not started or already closed");
         }
 
-        serverSocket.setSoTimeout(1000); // Set a timeout for the accept method (1 second for this example)
+        serverSocket.setSoTimeout(1000);
         try {
             return serverSocket.accept();
         } catch (SocketTimeoutException e) {
-            // If timeout occurs, check if it's interrupted, else continue waiting
+            // If timeout occurs, just return null
             if(Thread.currentThread().isInterrupted()){
                 throw new IOException("Socket accept interrupted", e);
             }
             return null;
+        } catch (SocketException e) {
+            // Handle socket closed exception
+            if ("Socket closed".equals(e.getMessage())) {
+                System.out.println("Server socket was closed, no longer accepting connections.");
+                return null;
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -95,6 +105,8 @@ public class SocketNetworkHandler implements NetworkHandler {
             out.println(response);
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            out.close();
         }
     }
 
@@ -111,19 +123,22 @@ public class SocketNetworkHandler implements NetworkHandler {
 
     @Override
     public int initializeSocket(String serverName, int portNumber) {
+        closeClient();
+
         try {
             clientSocket = new Socket(serverName, portNumber);
             out = new PrintWriter(clientSocket.getOutputStream(), true);
             in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
             // Parse the Lamport clock value sent by the server immediately after the connection
+            // Read HTTP status line
             String clockLine = in.readLine();
 
             if (clockLine == null) {
-                throw new IOException("Server closed the connection without sending LamportClock.");
-            }
-
-            if (clockLine.startsWith("LamportClock: ")) {
+                throw new IOException("Server closed the connection unexpectedly.");
+            } else if (clockLine.startsWith("HTTP/1.1 503")) {
+                throw new IOException("Received 503 Service Unavailable from the server.");
+            } else if (clockLine.startsWith("LamportClock: ")) {
                 return Integer.parseInt(clockLine.split(":")[1].trim());
             } else {
                 throw new IOException("Expected LamportClock value from server but received: " + clockLine);

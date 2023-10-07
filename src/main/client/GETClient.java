@@ -66,6 +66,10 @@ public class GETClient {
                     System.out.println("Server response: No Content.");
                     System.out.println();
                     return null;
+                } else if (response.startsWith("HTTP/1.1 503")) {
+                    System.out.println("Server response: Service Unavailable.");
+                    System.out.println();
+                    return null;
                 }
 
                 return JsonHandler.parseJSONObject(JsonHandler.extractJSONContent(response));
@@ -134,6 +138,14 @@ public class GETClient {
         return new String[] {serverParts[0], parts[1]};
     }
 
+    public void shutdown() {
+        System.out.println("Shutting down GETClient...");
+
+        networkHandler.closeClient();
+
+        System.out.println("GETClient shutdown complete.");
+    }
+
     /**
      * Main entry point for the GETClient.
      * @param args Command line arguments, where the first argument specifies the server (format: <serverName>:<portNumber>),
@@ -159,5 +171,7 @@ public class GETClient {
         client.interpretResponse(response);
 
         networkHandler.closeClient();
+
+        System.exit(0);  // Exit the program
     }
 }
