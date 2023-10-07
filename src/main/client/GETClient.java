@@ -117,6 +117,11 @@ public class GETClient {
         }
     }
 
+    /**
+     * Parses the provided server information to separate server name and port.
+     * @param input The server information in the format "serverName:portNumber".
+     * @return A string array where the first element is the server name and the second is the port number.
+     */
     public static String[] parseServerInfo(String input) {
         // Remove the "http://" if present
         String strippedInput = input.replaceFirst("http://", "");
@@ -138,6 +143,9 @@ public class GETClient {
         return new String[] {serverParts[0], parts[1]};
     }
 
+    /**
+     * Gracefully shuts down the GETClient, ensuring all resources are released.
+     */
     public void shutdown() {
         System.out.println("Shutting down GETClient...");
 
@@ -147,9 +155,11 @@ public class GETClient {
     }
 
     /**
-     * Main entry point for the GETClient.
-     * @param args Command line arguments, where the first argument specifies the server (format: <serverName>:<portNumber>),
-     * and the optional second argument is the stationID.
+     * Main execution point for GETClient.
+     * Accepts command-line arguments specifying the server and optionally the stationID.
+     * Fetches weather data from the specified server and prints the response.
+     * @param args Command line arguments. The first argument specifies the server in the format "serverName:portNumber",
+     *             and the optional second argument specifies the stationID.
      */
     public static void main(String[] args) {
         if (args.length < 2) {

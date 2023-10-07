@@ -17,11 +17,21 @@ public class LoadBalancer {
     private ScheduledExecutorService healthCheckScheduler;
     private List<AggregationServer> aggregationServers;
 
+    /**
+     * Constructs a LoadBalancer with the given network handler and a list of
+     * pre-configured AggregationServer instances.
+     * @param networkHandler The network handler for socket communication.
+     * @param aggregationServers The list of available AggregationServers.
+     */
     public LoadBalancer(NetworkHandler networkHandler, List<AggregationServer> aggregationServers) {
         this.networkHandler = networkHandler;
         this.aggregationServers = new ArrayList<>(aggregationServers);
     }
 
+    /**
+     * Retrieves the list of AggregationServer instances managed by this LoadBalancer.
+     * @return A list of AggregationServer instances.
+     */
     public List<AggregationServer> getAggregationServers() {
         return this.aggregationServers;
     }
@@ -44,6 +54,11 @@ public class LoadBalancer {
         aggregationServers.remove(server);
     }
 
+    /**
+     * Starts the LoadBalancer on the specified port. Initializes health
+     * check scheduler to periodically verify the status of AggregationServers.
+     * @param port The port number on which LoadBalancer listens for requests.
+     */
     public void start(int port) {
         System.out.println("Started LoadBalancer on port: " + port);
         networkHandler.startServer(port);
@@ -56,6 +71,10 @@ public class LoadBalancer {
         initializeAcceptThread();
     }
 
+    /**
+     * Accepts incoming client connections and forwards them to an available
+     * AggregationServer instance.
+     */
     private void initializeAcceptThread() {
         acceptThread = new Thread(() -> {
             while (!shutdown) {
@@ -72,6 +91,11 @@ public class LoadBalancer {
         acceptThread.start();
     }
 
+    /**
+     * Handles the client socket connection, forwards it to the next available
+     * AggregationServer, or sends an error if no server is available.
+     * @param clientSocket The client socket to handle.
+     */
     private void handleClientSocket(Socket clientSocket) {
         try {
             AggregationServer nextServer = getNextAggregationServer();
@@ -95,6 +119,10 @@ public class LoadBalancer {
         }
     }
 
+    /**
+     * Retrieves the next available AggregationServer using a round-robin approach.
+     * @return The next AggregationServer, or null if no server is available.
+     */
     public synchronized AggregationServer getNextAggregationServer() {
         if (aggregationServers.isEmpty()) {
             return null; // Return null or handle this scenario as per your needs.
@@ -114,6 +142,10 @@ public class LoadBalancer {
         return null; // None of the servers are alive.
     }
 
+    /**
+     * Periodically checks the health/status of all AggregationServer instances.
+     * Removes any server from the rotation list that's not responding.
+     */
     public synchronized void checkServerHealth() {
         Iterator<AggregationServer> iterator = aggregationServers.iterator();
         while (iterator.hasNext()) {
@@ -125,6 +157,10 @@ public class LoadBalancer {
         }
     }
 
+    /**
+     * Initializes a thread that listens for a shutdown command from the user.
+     * Upon receiving the "SHUTDOWN" command, it triggers the shutdown procedure.
+     */
     private void initializeShutdownMonitor() {
         Thread monitorThread = new Thread(() -> {
             Scanner scanner = new Scanner(System.in);
@@ -141,6 +177,9 @@ public class LoadBalancer {
         monitorThread.start();
     }
 
+    /**
+     * Gracefully shuts down the LoadBalancer and all managed AggregationServer instances.
+     */
     public void shutdown() {
         System.out.println("Shutting down the LoadBalancer...");
 
@@ -170,6 +209,11 @@ public class LoadBalancer {
         System.out.println("LoadBalancer and all managed AggregationServers have been shut down.");
     }
 
+    /**
+     * The main method for starting up the LoadBalancer. It also initializes and
+     * starts a specified number of AggregationServer instances.
+     * @param args Command line arguments, specifying port number and the number of AggregationServers.
+     */
     public static void main(String[] args) {
         // Default values
         int port = DEFAULT_PORT;

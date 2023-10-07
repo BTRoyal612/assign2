@@ -45,16 +45,34 @@ public class AggregationServer {
             lamportClock.setClock(sharedTime);
         }
 
+        dataStoreService.registerAS();
+        asCount.incrementAndGet();
     }
 
+    /**
+     * Returns the port number on which the AggregationServer is running or is supposed to run.
+     * @return the port number of the server.
+     */
     public int getPort() {
         return this.port;
     }
 
+    /**
+     * Fetches the last piece of data that was received by the AggregationServer.
+     * This can be particularly useful for testing purposes to verify if the
+     * server received a specific piece of data.
+     * @return a string representation of the last received data.
+     */
     public String getLastReceivedData() {
         return lastReceivedData;
     }
 
+    /**
+     * Sets the value for the last piece of data that the AggregationServer received.
+     * This method is marked as private because it is internal to the server's operation
+     * and shouldn't be modified externally.
+     * @param data the latest data received by the server.
+     */
     private void setLastReceivedData(String data) {
         this.lastReceivedData = data;
     }
@@ -72,6 +90,12 @@ public class AggregationServer {
         }
     }
 
+    /**
+     * Synchronizes the local Lamport clock with a shared clock.
+     * If the shared clock's time is ahead, the local Lamport clock is updated to match it.
+     * After synchronization, the shared clock is then updated with the possibly incremented
+     * value from the local Lamport clock. Finally, the local Lamport clock is ticked to increase its time.
+     */
     public void synchronizeWithSharedClock() {
         int sharedTime = sharedClock.getTime();
         int localTime = lamportClock.getTime();
@@ -88,7 +112,7 @@ public class AggregationServer {
     }
 
     /**
-     * Starts the server and initializes required components.
+     * Starts the server and initializes required components, for a load balancer.
      * @param portNumber The port number on which the server will listen for incoming connections.
      */
     public void start(int portNumber) {
@@ -118,10 +142,17 @@ public class AggregationServer {
 
         processClientRequests();                // Start processing client requests
 
-        dataStoreService.registerAS();
-        asCount.incrementAndGet();
     }
 
+    /**
+     * Starts the AggregationServer independently without the need for a load balancer.
+     * The method first checks if there's any existing server instance running.
+     * If not, it starts the server, waits for it to become alive (with a timeout),
+     * initializes necessary threads for monitoring shutdown and accepting clients,
+     * and then starts processing client requests.
+     * @param portNumber The port on which the AggregationServer should run.
+     * @throws RuntimeException if the server is already running or doesn't start successfully.
+     */
     public void startAlone(int portNumber) {
         System.out.println("Started AggregationServer on port: " + portNumber);
         this.port = portNumber;
@@ -152,9 +183,6 @@ public class AggregationServer {
         initializeAcceptThread();               // Start the client acceptance thread
 
         processClientRequests();                // Start processing client requests
-
-        dataStoreService.registerAS();
-        asCount.incrementAndGet();
     }
 
     /**
@@ -314,6 +342,19 @@ public class AggregationServer {
     }
 
     /**
+     * Extracts the Lamport time from the given headers and synchronizes the local Lamport clock
+     * with the extracted time. After synchronization, it retrieves and returns the updated Lamport clock's time.
+     * @param headers Headers from which to extract the Lamport time.
+     * @return Updated Lamport clock time.
+     */
+    private int getLamportTimeFromHeaders(Map<String, String> headers) {
+        int lamportTime = Integer.parseInt(headers.getOrDefault("LamportClock", "-1"));
+        lamportClock.receive(lamportTime);
+        synchronizeWithSharedClock();
+        return lamportClock.getTime();
+    }
+
+    /**
      * Processes a given client request and returns an appropriate response.
      * @param requestData The client's request data as a string.
      * @return A string representing the server's response.
@@ -352,16 +393,8 @@ public class AggregationServer {
         }
     }
 
-    private int getLamportTimeFromHeaders(Map<String, String> headers) {
-        int lamportTime = Integer.parseInt(headers.getOrDefault("LamportClock", "-1"));
-        lamportClock.receive(lamportTime);
-        synchronizeWithSharedClock();
-        return lamportClock.getTime();
-    }
-
     /**
      * Processes a GET request and returns an appropriate response.
-     *
      * @param headers A map containing request headers.
      * @return A string representing the server's response.
      */
@@ -388,10 +421,21 @@ public class AggregationServer {
                 .orElse(formatHttpResponse("204 No Content", null));
     }
 
+    /**
+     * Checks if the provided weather data queue is empty or null.
+     * @param queue The queue to check.
+     * @return True if the queue is null or empty, otherwise false.
+     */
     private boolean isWeatherDataQueueEmpty(PriorityQueue<WeatherData> queue) {
         return queue == null || queue.isEmpty();
     }
 
+    /**
+     * Extracts the Station ID from the given headers or defaults to the first available
+     * station ID from the datastore if not found in the headers.
+     * @param headers Headers from which to extract the Station ID.
+     * @return Extracted or default Station ID.
+     */
     private String getStationIdFromHeadersOrDefault(Map<String, String> headers) {
         String stationId = headers.get("StationID");
         if (stationId != null && !stationId.isEmpty()) {
@@ -400,6 +444,13 @@ public class AggregationServer {
         return dataStoreService.getAllDataKeys().stream().findFirst().orElse(null);
     }
 
+    /**
+     * Retrieves the weather data for a given Lamport time from the provided queue.
+     * The method finds the entry with the largest Lamport time that is less than or equal to the provided time.
+     * @param queue Queue containing weather data.
+     * @param lamportTime The Lamport time for which data is needed.
+     * @return An optional containing the weather data if found, or empty otherwise.
+     */
     private Optional<WeatherData> getWeatherDataForLamportTime(PriorityQueue<WeatherData> queue, int lamportTime) {
         return queue.stream()
                 .filter(data -> data.getLamportTime() <= lamportTime)  // This line ensures the data is less than or equal to provided clock
@@ -408,7 +459,6 @@ public class AggregationServer {
 
     /**
      * Processes a PUT request and returns an appropriate response.
-     *
      * @param headers A map containing request headers.
      * @param content The content/body of the request.
      * @return A string representing the server's response.
@@ -428,17 +478,28 @@ public class AggregationServer {
         }
     }
 
+    /**
+     * Checks if the given sender ID is valid.
+     * @param senderID The ID to validate.
+     * @return True if the senderID is not null and not empty, otherwise false.
+     */
     private boolean isValidSender(String senderID) {
         return senderID != null && !senderID.isEmpty();
     }
 
+    /**
+     * Determines if a request is either new or has been delayed beyond a threshold.
+     *
+     * @param lastTimestamp The timestamp of the last request.
+     * @param currentTimestamp The timestamp of the current request.
+     * @return True if the request is new or delayed beyond the threshold, otherwise false.
+     */
     private boolean isNewOrDelayedRequest(Long lastTimestamp, long currentTimestamp) {
         return lastTimestamp == null || (currentTimestamp - lastTimestamp) > THRESHOLD;
     }
 
     /**
      * Adds weather data to the server's data store.
-     *
      * @param content The String representation of the weather data.
      * @param lamportTime The Lamport timestamp associated with the data.
      * @param senderID The identifier of the server sending the data.
@@ -463,14 +524,32 @@ public class AggregationServer {
         }
     }
 
+    /**
+     * Validates if the provided station ID is neither null nor empty.
+     * @param stationId The Station ID to validate.
+     * @return True if the stationId is valid, otherwise false.
+     */
     private boolean isValidStation(String stationId) {
         return stationId != null && !stationId.isEmpty();
     }
 
+    /**
+     * Extracts and returns the station ID from the provided JSON object representing weather data.
+     * Returns null if the ID is not present in the JSON.
+     * @param weatherDataJSON JSON object containing weather data.
+     * @return Extracted station ID or null if not found.
+     */
     private String extractStationId(JsonObject weatherDataJSON) {
         return weatherDataJSON.has("id") ? weatherDataJSON.get("id").getAsString() : null;
     }
 
+    /**
+     * Generates an HTTP response based on the difference between the current timestamp
+     * and the last known timestamp for the given senderID. If the request is new or delayed,
+     * it returns a "201 HTTP_CREATED" response; otherwise, it returns a "200 OK" response.
+     * @param senderID The ID of the sender making the request.
+     * @return HTTP response string.
+     */
     private String generateResponseBasedOnTimestamp(String senderID) {
         long currentTimestamp = System.currentTimeMillis();
         Long lastTimestamp = dataStoreService.getTimestamp(senderID);
@@ -485,6 +564,13 @@ public class AggregationServer {
         }
     }
 
+    /**
+     * Formats the provided HTTP status and JSON data into a full HTTP response string.
+     * This method also updates the Lamport clock and synchronizes it with the shared clock.
+     * @param status The HTTP status code and message.
+     * @param jsonData JSON data to be included in the response body.
+     * @return Formatted HTTP response string.
+     */
     private String formatHttpResponse(String status, JsonObject jsonData) {
         StringBuilder response = new StringBuilder();
         lamportClock.tick();

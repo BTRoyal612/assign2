@@ -113,6 +113,13 @@ public class ContentServer {
         }, 0, 30, TimeUnit.SECONDS);
     }
 
+    /**
+     * Attempts to re-upload the weather data after a brief waiting period.
+     * This method is invoked when the initial attempt to upload data to another server fails.
+     *
+     * @param serverName The name or address of the target server.
+     * @param portNumber The port number on which the target server is listening.
+     */
     private void retryUpload(String serverName, int portNumber) {
         try {
             // Sleep for 30 seconds before retrying
@@ -123,6 +130,10 @@ public class ContentServer {
         }
     }
 
+    /**
+     * Initializes a background thread that monitors the console input for a shutdown command.
+     * When "SHUTDOWN" is entered in the console, the server initiates a graceful shutdown process.
+     */
     private void initializeShutdownMonitor() {
         Thread monitorThread = new Thread(() -> {
             Scanner scanner = new Scanner(System.in);
@@ -138,6 +149,10 @@ public class ContentServer {
         monitorThread.start();
     }
 
+    /**
+     * Gracefully cleans up and releases resources used by the ContentServer.
+     * This includes terminating scheduled tasks and closing network connections.
+     */
     private void cleanupResources() {
         // Shutdown data upload scheduler
         dataUploadScheduler.shutdown();
@@ -153,11 +168,12 @@ public class ContentServer {
         networkHandler.closeClient();
     }
 
+    /**
+     * Gracefully shuts down the ContentServer by terminating active tasks and closing resources.
+     */
     public void shutdown() {
         System.out.println("Shutting down ContentServer...");
-
         cleanupResources();
-
         System.out.println("ContentServer shutdown complete.");
     }
 

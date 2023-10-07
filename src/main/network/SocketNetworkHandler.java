@@ -13,6 +13,10 @@ public class SocketNetworkHandler implements NetworkHandler {
     private BufferedReader in;
 
     // For Aggregation Server and Load Balancer
+    /**
+     * Starts the server using a server socket on the specified port.
+     * @param portNumber The port number where the server should listen for incoming connections.
+     */
     @Override
     public void startServer(int portNumber) {
         closeServer();
@@ -23,7 +27,13 @@ public class SocketNetworkHandler implements NetworkHandler {
         }
     }
 
-    // New method to accept a client connection
+    /**
+     * Listens for and accepts an incoming connection from a client.
+     * Once a connection is established, it returns the socket associated with that client.
+     * If the operation times out or is interrupted, it returns null.
+     * @return The socket for the connected client or null if no connection was established.
+     * @throws IOException If there's an issue with the network or server socket.
+     */
     @Override
     public Socket acceptConnection() throws IOException {
         if (serverSocket == null || serverSocket.isClosed()) {
@@ -50,6 +60,12 @@ public class SocketNetworkHandler implements NetworkHandler {
         }
     }
 
+    /**
+     * Listens for incoming data from a connected client.
+     * This method reads both the headers and the body of the HTTP request.
+     * @param clientSocket The client's socket.
+     * @return The data received from the client.
+     */
     @Override
     public String waitForClientData(Socket clientSocket) {
         StringBuilder requestBuilder = new StringBuilder();
@@ -98,6 +114,11 @@ public class SocketNetworkHandler implements NetworkHandler {
         }
     }
 
+    /**
+     * Sends the specified response data to the connected client and then closes the associated resources.
+     * @param response The data to be sent to the client.
+     * @param clientSocket The client's socket.
+     */
     @Override
     public void sendResponseToClient(String response, Socket clientSocket) { // Modified
         try {
@@ -110,6 +131,9 @@ public class SocketNetworkHandler implements NetworkHandler {
         }
     }
 
+    /**
+     * Gracefully shuts down the server by closing the server socket and any associated resources.
+     */
     @Override
     public void closeServer() {
         try {
@@ -120,7 +144,13 @@ public class SocketNetworkHandler implements NetworkHandler {
     }
 
     // For Content Server and GETClient
-
+    /**
+     * Establishes a client connection with a specified server and initializes the associated socket.
+     * Once connected, it expects to receive the Lamport clock value from the server.
+     * @param serverName The name or address of the server to connect to.
+     * @param portNumber The port number of the server.
+     * @return The Lamport clock value sent by the server.
+     */
     @Override
     public int initializeSocket(String serverName, int portNumber) {
         closeClient();
@@ -150,6 +180,15 @@ public class SocketNetworkHandler implements NetworkHandler {
         }
     }
 
+    /**
+     * Sends the provided data to a server and then waits for its response.
+     * After receiving the response, it shuts down the client and its associated resources.
+     * @param serverName The name or address of the server.
+     * @param portNumber The port number of the server.
+     * @param data The data to be sent to the server.
+     * @param isContentServer Flag to indicate if the caller is a content server.
+     * @return The server's response.
+     */
     @Override
     public String sendAndReceiveData(String serverName, int portNumber, String data, boolean isContentServer) {
         try {
@@ -191,6 +230,9 @@ public class SocketNetworkHandler implements NetworkHandler {
         }
     }
 
+    /**
+     * Gracefully shuts down the client by closing its associated resources such as sockets, input and output streams.
+     */
     @Override
     public void closeClient() {
         try {
