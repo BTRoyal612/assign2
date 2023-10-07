@@ -11,6 +11,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,14 +20,28 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 public class IntegrationTest {
-
     private LoadBalancer loadBalancer;
     private  List<AggregationServer> serverInstances;
     private ContentServer contentServer1, contentServer2;
     private GETClient getClient1, getClient2;
+    private final PrintStream originalOut = System.out;
+
+    public void suppressOutput() {
+        System.setOut(new PrintStream(new OutputStream() {
+            @Override
+            public void write(int b) {
+                // Discard all data
+            }
+        }));
+    }
+
+    public void restoreOutput() {
+        System.setOut(originalOut);
+    }
 
     @BeforeEach
     public void setUp() {
+        suppressOutput();
         NetworkHandler lbNetworkHandler = new SocketNetworkHandler();
         serverInstances = new ArrayList<>();
 
@@ -41,6 +57,11 @@ public class IntegrationTest {
             // Start each AggregationServer instance in a new thread
             new Thread(() -> {
                 server.start(serverPort);
+                try {
+                    Thread.sleep(200);  // Sleep for 200 milliseconds after starting
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }).start();
         }
 
@@ -65,6 +86,10 @@ public class IntegrationTest {
 
     @AfterEach
     public void tearDown() {
+        // Shutdown LoadBalancer (assuming there's a shutdown method)
+        loadBalancer.shutdown();
+        serverInstances.forEach(AggregationServer::shutdown);
+
         // Shutdown content servers
         contentServer1.shutdown();
         contentServer2.shutdown();
@@ -73,9 +98,6 @@ public class IntegrationTest {
         getClient1.shutdown();
         getClient2.shutdown();
 
-        // Shutdown LoadBalancer (assuming there's a shutdown method)
-        loadBalancer.shutdown();
-
         // Nullify objects to free up resources and make them eligible for garbage collection
         serverInstances.clear();
         loadBalancer = null;
@@ -83,6 +105,14 @@ public class IntegrationTest {
         contentServer2 = null;
         getClient1 = null;
         getClient2 = null;
+
+        restoreOutput();
+
+        try {
+            Thread.sleep(1000);  // Sleep for 200 milliseconds after shutdown
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
@@ -186,8 +216,6 @@ public class IntegrationTest {
         getClient1.getData("localhost", 4567, "IDS60901");
         getClient2.getData("localhost", 4567, "IDS90210");
 
-        System.out.println("server request: " + newServer.getLastReceivedData());
-
         assertNotNull(newServer.getLastReceivedData());
     }
 
@@ -227,8 +255,6 @@ public class IntegrationTest {
         getClient2.getData("localhost", 4567, "IDS90210");
         getClient1.getData("localhost", 4567, "IDS90210");
 
-        System.out.println("server request: " + serverInstances.get(0).getLastReceivedData());
         assertNotNull(serverInstances.get(0).getLastReceivedData());
     }
-
 }

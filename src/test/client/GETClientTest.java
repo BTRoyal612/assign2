@@ -2,11 +2,13 @@ package test.client;
 
 import com.google.gson.JsonObject;
 import main.client.GETClient;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import test.network.StubNetworkHandler;
 
 import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -15,7 +17,22 @@ public class GETClientTest {
     private GETClient client;
     private StubNetworkHandler stubNetworkHandler;
     private final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
+    private final PrintStream originalOut = System.out;
 
+    @BeforeEach
+    public void suppressOutput() {
+        System.setOut(new PrintStream(new OutputStream() {
+            @Override
+            public void write(int b) {
+                // Discard all data
+            }
+        }));
+    }
+
+    @AfterEach
+    public void restoreOutput() {
+        System.setOut(originalOut);
+    }
     @BeforeEach
     public void setUp() {
         stubNetworkHandler = new StubNetworkHandler();

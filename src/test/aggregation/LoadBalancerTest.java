@@ -3,11 +3,14 @@ package test.aggregation;
 import main.aggregation.AggregationServer;
 import main.aggregation.LoadBalancer;
 import main.network.NetworkHandler;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -17,6 +20,22 @@ public class LoadBalancerTest {
     private NetworkHandler mockNetworkHandler;
     private AggregationServer mockServer1, mockServer2, mockServer3;
     private List<AggregationServer> mockServerList;
+    private final PrintStream originalOut = System.out;
+
+    @BeforeEach
+    public void suppressOutput() {
+        System.setOut(new PrintStream(new OutputStream() {
+            @Override
+            public void write(int b) {
+                // Discard all data
+            }
+        }));
+    }
+
+    @AfterEach
+    public void restoreOutput() {
+        System.setOut(originalOut);
+    }
 
     @BeforeEach
     public void setUp() {

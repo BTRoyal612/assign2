@@ -28,8 +28,11 @@ $(SRC)/test/%.class: $(SRC)/test/%.java
 # Compile JUnit test files
 test: $(TEST_CLASSES)
 
-test_run: test
-	@$(JAVA) $(CPTEST) $(TEST_MAIN_CLASS) --details=verbose --scan-class-path
+test_each_class: test
+	@for class in $(TEST_CLASSES); do \
+		fullname=`echo $$class | sed 's@$(SRC)/@@' | sed 's@.class@@' | tr '/' '.'`; \
+		$(JAVA) $(CPTEST) $(TEST_MAIN_CLASS) --select-class $$fullname 2>/dev/null; \
+	done
 
 clean:
 	@find . -name "*.class" -exec rm {} +
@@ -42,6 +45,9 @@ loadbalancer: all
 
 loadbalancer1: all
 	@$(JAVA) $(CP) $(LOAD_BALANCER) 4567 1
+
+loadbalancer5: all
+	@$(JAVA) $(CP) $(LOAD_BALANCER) 4567 5
 
 content1: all
 	@$(JAVA) $(CP) $(CONTENT_SERVER) localhost 4567 $(SRC)/main/content/input_v1.txt

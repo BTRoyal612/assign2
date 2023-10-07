@@ -2,11 +2,32 @@ package test.common;
 
 import main.common.JsonHandler;
 import com.google.gson.JsonObject;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.io.OutputStream;
+import java.io.PrintStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class JsonHandlerTest {
+    private final PrintStream originalOut = System.out;
+
+    @BeforeEach
+    public void suppressOutput() {
+        System.setOut(new PrintStream(new OutputStream() {
+            @Override
+            public void write(int b) {
+                // Discard all data
+            }
+        }));
+    }
+
+    @AfterEach
+    public void restoreOutput() {
+        System.setOut(originalOut);
+    }
     @Test
     void testTextToJsonConversion() {
         try {

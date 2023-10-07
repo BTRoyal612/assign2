@@ -6,13 +6,30 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.PriorityQueue;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class DataStoreServiceTest {
-
     private DataStoreService dataStoreService;
+    private final PrintStream originalOut = System.out;
+
+    @BeforeEach
+    public void suppressOutput() {
+        System.setOut(new PrintStream(new OutputStream() {
+            @Override
+            public void write(int b) {
+                // Discard all data
+            }
+        }));
+    }
+
+    @AfterEach
+    public void restoreOutput() {
+        System.setOut(originalOut);
+    }
 
     @BeforeEach
     public void setUp() {

@@ -1,6 +1,7 @@
 package test.content;
 
 import main.content.ContentServer;
+import org.junit.jupiter.api.AfterEach;
 import test.network.StubNetworkHandler;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -8,12 +9,30 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ContentServerTest {
     private ContentServer contentServer;
     private StubNetworkHandler stubNetworkHandler;
+    private final PrintStream originalOut = System.out;
+
+    @BeforeEach
+    public void suppressOutput() {
+        System.setOut(new PrintStream(new OutputStream() {
+            @Override
+            public void write(int b) {
+                // Discard all data
+            }
+        }));
+    }
+
+    @AfterEach
+    public void restoreOutput() {
+        System.setOut(originalOut);
+    }
 
     @BeforeEach
     public void setUp() {
