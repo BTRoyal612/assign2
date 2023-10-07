@@ -1,7 +1,6 @@
 # Variables
-JDK_DIR = jdk/bin
-JAVA = $(JDK_DIR)/java
-JAVAC = $(JDK_DIR)/javac
+JAVA = java
+JAVAC = javac
 LIB = lib
 SRC = src
 OUT = out
@@ -18,9 +17,6 @@ CONTENT_SERVER = main.content.ContentServer
 GETCLIENT = main.client.GETClient
 
 # Targets and their actions
-setup:
-	@chmod +x $(JAVA) $(JAVAC)
-
 all: compile-main
 
 compile-main:
