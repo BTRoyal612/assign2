@@ -19,7 +19,7 @@ public class AggregationServer {
     private static final int DEFAULT_PORT = 4567;
     private static final long THRESHOLD = 40000;
     private static LamportClock sharedClock = new LamportClock();
-    private static AtomicInteger asCount = new AtomicInteger();
+    private static AtomicInteger asCount = new AtomicInteger(0);
     private static DataStoreService dataStoreService = DataStoreService.getInstance();
     private volatile boolean shutdown;
     private int port;
@@ -108,7 +108,6 @@ public class AggregationServer {
         // Update the shared clock with the local clock's time.
         // This ensures if the local clock had a greater value, the shared clock is updated.
         sharedClock.receive(lamportClock.getTime());
-        lamportClock.tick();
     }
 
     /**
@@ -145,47 +144,6 @@ public class AggregationServer {
     }
 
     /**
-     * Starts the AggregationServer independently without the need for a load balancer.
-     * The method first checks if there's any existing server instance running.
-     * If not, it starts the server, waits for it to become alive (with a timeout),
-     * initializes necessary threads for monitoring shutdown and accepting clients,
-     * and then starts processing client requests.
-     * @param portNumber The port on which the AggregationServer should run.
-     * @throws RuntimeException if the server is already running or doesn't start successfully.
-     */
-    public void startAlone(int portNumber) {
-        System.out.println("Started AggregationServer on port: " + portNumber);
-        this.port = portNumber;
-        this.shutdown = false;
-
-        if (acceptThread != null && acceptThread.isAlive()) {
-            throw new RuntimeException("Server is still running or hasn't been properly shut down");
-        }
-
-        networkHandler.startServer(portNumber); // Starting the server socket
-
-        long startTime = System.currentTimeMillis();
-        while (!isAlive() && (System.currentTimeMillis() - startTime) < 5000) {
-            // Wait up to 5 seconds for server to be alive
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                System.out.println("Interrupted while waiting for server to start");
-            }
-        }
-        if (!isAlive()) {
-            throw new RuntimeException("Server did not start successfully");
-        }
-
-        initializeShutdownMonitor();            // Start the shutdown monitor thread
-
-        initializeAcceptThread();               // Start the client acceptance thread
-
-        processClientRequests();                // Start processing client requests
-    }
-
-    /**
      * This method is used by the LoadBalancer to directly inject a client socket into the
      * Aggregation Server's processing logic.
      * @param clientSocket The client socket forwarded by the LoadBalancer.
@@ -201,29 +159,11 @@ public class AggregationServer {
             out.println(clockValue);
             out.flush();
 
+            lamportClock.tick();
             requestQueue.put(clientSocket);
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    /**
-     * Initializes a monitor thread that listens for SHUTDOWN command from the console to shut down the server.
-     */
-    private void initializeShutdownMonitor() {
-        Thread monitorThread = new Thread(() -> {
-            Scanner scanner = new Scanner(System.in);
-            while (true) {
-                System.out.println("Enter 'SHUTDOWN' to terminate the LoadBalancer.");
-                String input = scanner.nextLine();
-                if ("SHUTDOWN".equalsIgnoreCase(input)) {
-                    shutdown();
-                    scanner.close();
-                    break;
-                }
-            }
-        });
-        monitorThread.start();
     }
 
     /**
@@ -255,40 +195,6 @@ public class AggregationServer {
         }
 
         System.out.println("Shutting down AggregationServer on port " + getPort());
-    }
-
-    /**
-     * Initializes a thread to continuously accept incoming client connections and add them to a request queue.
-     */
-    private void initializeAcceptThread() {
-        acceptThread = new Thread(() -> {
-            while (!Thread.currentThread().isInterrupted()) {
-                try {
-                    Socket clientSocket = networkHandler.acceptConnection();
-                    if(clientSocket != null) {
-                        System.out.println("Accepted connection from: " + clientSocket);
-
-                        // Send the current Lamport clock value to the client right after accepting the connection
-                        synchronizeWithSharedClock();
-                        String clockValue = "LamportClock: " + lamportClock.getTime();
-                        PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-                        out.println(clockValue);
-                        out.flush();
-
-                        requestQueue.put(clientSocket);
-                    }
-                } catch (IOException e) {
-                    if(Thread.currentThread().isInterrupted()){
-                        // The thread was interrupted during the blocking acceptConnection call
-                        break;
-                    }
-                    e.printStackTrace();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
-        acceptThread.start();
     }
 
     /**
@@ -351,6 +257,7 @@ public class AggregationServer {
         int lamportTime = Integer.parseInt(headers.getOrDefault("LamportClock", "-1"));
         lamportClock.receive(lamportTime);
         synchronizeWithSharedClock();
+        lamportClock.tick();
         return lamportClock.getTime();
     }
 
@@ -575,6 +482,7 @@ public class AggregationServer {
         StringBuilder response = new StringBuilder();
         lamportClock.tick();
         synchronizeWithSharedClock();
+        lamportClock.tick();
 
         response.append("HTTP/1.1 ").append(status).append("\r\n");
         response.append("LamportClock: ").append(lamportClock.getTime()).append("\r\n");
@@ -603,6 +511,6 @@ public class AggregationServer {
         }
         NetworkHandler networkHandler = new SocketNetworkHandler();
         AggregationServer server = new AggregationServer(networkHandler);
-        server.startAlone(port);
+        server.start(port);
     }
 }

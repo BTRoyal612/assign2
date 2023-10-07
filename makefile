@@ -1,13 +1,15 @@
 # Variables
-JAVA = java
-JAVAC = javac
+JDK_DIR = jdk/bin
+JAVA = $(JDK_DIR)/java
+JAVAC = $(JDK_DIR)/javac
 LIB = lib
 SRC = src
-CP = -cp $(LIB)/gson-2.10.1.jar:$(SRC)/
-CPTEST = -cp $(LIB)/*:$(SRC)/
+OUT = out
+CP = -cp $(LIB)/gson-2.10.1.jar:$(OUT)/
+CPTEST = -cp $(LIB)/*:$(OUT)/
 
-MAIN_CLASSES = $(patsubst %.java,%.class,$(wildcard $(SRC)/main/**/*.java))
-TEST_CLASSES = $(patsubst %.java,%.class,$(wildcard $(SRC)/test/**/*.java))
+MAIN_SOURCES = $(wildcard $(SRC)/main/**/*.java)
+TEST_SOURCES = $(wildcard $(SRC)/test/**/*.java)
 
 TEST_MAIN_CLASS = org.junit.platform.console.ConsoleLauncher
 LOAD_BALANCER = main.aggregation.LoadBalancer
@@ -16,29 +18,27 @@ CONTENT_SERVER = main.content.ContentServer
 GETCLIENT = main.client.GETClient
 
 # Targets and their actions
+setup:
+	@chmod +x $(JAVA) $(JAVAC)
 
-all: $(MAIN_CLASSES)
+all: compile-main
 
-$(SRC)/main/%.class: $(SRC)/main/%.java
-	@$(JAVAC) $(CP) $<
+compile-main:
+	@mkdir -p $(OUT)
+	@$(JAVAC) $(CP) -d $(OUT) $(MAIN_SOURCES)
 
-$(SRC)/test/%.class: $(SRC)/test/%.java
-	@$(JAVAC) $(CPTEST) $<
+compile-test: compile-main
+	@$(JAVAC) $(CPTEST) -d $(OUT) $(TEST_SOURCES)
 
-# Compile JUnit test files
-test: $(TEST_CLASSES)
-
-test_each_class: test
-	@for class in $(TEST_CLASSES); do \
-		fullname=`echo $$class | sed 's@$(SRC)/@@' | sed 's@.class@@' | tr '/' '.'`; \
-		$(JAVA) $(CPTEST) $(TEST_MAIN_CLASS) --select-class $$fullname 2>/dev/null; \
-	done
+test: compile-test
+	@$(JAVA) $(CPTEST) $(TEST_MAIN_CLASS) --scan-classpath 2>/dev/null
 
 clean:
 	@find . -name "*.class" -exec rm {} +
+	@rm -rf $(OUT)
 
-aggregation: all
-	@$(JAVA) $(CP) $(AGGREGATION_SERVER)
+run: all
+	@$(JAVA) $(CP) $(MAIN_CLASS)
 
 loadbalancer: all
 	@$(JAVA) $(CP) $(LOAD_BALANCER)
@@ -67,4 +67,4 @@ client2: all
 client3: all
 	@$(JAVA) $(CP) $(GETCLIENT) http://localhost:4567 IDS60901
 
-.PHONY: all clean test
+.PHONY: all clean test run compile-main compile-test aggregation loadbalancer loadbalancer1 loadbalancer5 content1 content2 content3 client1 client2 client3
