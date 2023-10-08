@@ -2,14 +2,12 @@ package test.network;
 
 import main.network.NetworkHandler;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 
 public class StubNetworkHandler implements NetworkHandler {
     private String lastSentData;
     private int sentDataCount = 0;
-    private String simulatedResponse = "200 OK"; // Default simulated response for sendData
+    private String simulatedResponse = "HTTP/1.1 200 OK"; // Default simulated response for sendData
 
     @Override
     public void startServer(int portNumber) {
@@ -52,23 +50,6 @@ public class StubNetworkHandler implements NetworkHandler {
     @Override
     public int initializeSocket(String serverName, int portNumber) {
         return 0;  // Return a mocked value indicating success
-    }
-
-    @Override
-    public Socket createConnection(InetSocketAddress serverAddress) {
-        return new Socket();  // Return a new mock socket without binding it
-    }
-
-    @Override
-    public void sendData(Socket serverSocket, String requestData) {
-        // For the stub, just store the data to check later
-        lastSentData = requestData;
-        sentDataCount++;
-    }
-
-    @Override
-    public String receiveData(Socket serverSocket) {
-        return simulatedResponse;
     }
 
     public String getLastSentData() {

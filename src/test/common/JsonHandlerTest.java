@@ -2,21 +2,40 @@ package test.common;
 
 import main.common.JsonHandler;
 import com.google.gson.JsonObject;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.io.OutputStream;
+import java.io.PrintStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class JsonHandlerTest {
+    private final PrintStream originalOut = System.out;
+
+    @BeforeEach
+    public void suppressOutput() {
+        System.setOut(new PrintStream(new OutputStream() {
+            @Override
+            public void write(int b) {
+                // Discard all data
+            }
+        }));
+    }
+
+    @AfterEach
+    public void restoreOutput() {
+        System.setOut(originalOut);
+    }
     @Test
     void testTextToJsonConversion() {
         try {
             // Sample input text string.
-            String content =
-                    """
-                    id: IDS60901
-                    name: Adelaide (West Terrace / ngayirdapira)
-                    air_temp: 13.3
-                    cloud: Partly cloudy""";
+            String content ="id: IDS60901\r\n" +
+                    "name: Adelaide (West Terrace / ngayirdapira)\r\n" +
+                    "air_temp: 13.3\r\n" +
+                    "cloud: Partly cloudy";
 
             JsonObject result = JsonHandler.convertTextToJSON(content);
 
@@ -89,5 +108,29 @@ class JsonHandlerTest {
         } catch (Exception e) {
             assertTrue(e instanceof com.google.gson.JsonParseException);
         }
+    }
+
+    @Test
+    public void testPrettyPrint() {
+        // Create a sample JsonObject
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("id", "IDS60901");
+        jsonObject.addProperty("name", "Adelaide (West Terrace / ngayirdapira)");
+        jsonObject.addProperty("state", "SA");
+        jsonObject.addProperty("air_temp", 13.3);
+
+        // Use the method to get the pretty printed version
+        String pretty = JsonHandler.prettyPrint(jsonObject);
+
+        // Create the expected pretty printed version
+        String expected = "{\n" +
+                "  \"id\": \"IDS60901\",\n" +
+                "  \"name\": \"Adelaide (West Terrace / ngayirdapira)\",\n" +
+                "  \"state\": \"SA\",\n" +
+                "  \"air_temp\": 13.3\n" +
+                "}";
+
+        // Assert they are equal
+        assertEquals(expected, pretty);
     }
 }
