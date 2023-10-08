@@ -162,8 +162,8 @@ public class GETClient {
      *             and the optional second argument specifies the stationID.
      */
     public static void main(String[] args) {
-        if (args.length < 2) {
-            System.out.println("Usage: GETClient <serverName>:<portNumber> <stationID>");
+        if (args.length < 1) {
+            System.out.println("Usage: GETClient <serverName>:<portNumber> [stationID]");
             return;
         }
 
@@ -171,7 +171,10 @@ public class GETClient {
         String serverName = serverInfo[0];
         int portNumber = Integer.parseInt(serverInfo[1]);
 
-        String stationID = args[1];
+        String stationID = null;
+        if (args.length == 2) {
+            stationID = args[1];
+        }
 
         NetworkHandler networkHandler = new SocketNetworkHandler();
         GETClient client = new GETClient(networkHandler);

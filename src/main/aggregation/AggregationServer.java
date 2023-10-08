@@ -258,7 +258,7 @@ public class AggregationServer {
         lamportClock.receive(lamportTime);
         synchronizeWithSharedClock();
         lamportClock.tick();
-        return lamportClock.getTime();
+        return lamportTime;
     }
 
     /**
