@@ -226,6 +226,16 @@ By combining these diverse testing methodologies, I are not only ensuring that i
     - **Command**: `make clean`
     - Use this command to clear all the compiled files, ensuring a fresh state for subsequent compilations and runs.
 
+#### Address Exception:
+
+If you encounter an exception that reads `Address already in use`, it suggests that another process on your machine or server is occupying the desired port. Here's what you can do:
+
+1. **Update Port**: Navigate to the relevant configuration or code section and assign a different, available port for testing.
+
+2. **Wait & Retry**: Sometimes, the port might get free in a short while. If you suspect this might be the case, wait for a few moments and execute the test command again.
+
+It's essential to ensure that the port is available to avoid interference and obtain accurate test results.
+
 ### Running the System using `make` Commands
 
 If you wish to witness the system in action using the predefined `make` commands, follow these steps:
