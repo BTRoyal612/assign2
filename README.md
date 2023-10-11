@@ -60,6 +60,51 @@ This tree structure provides a clear and comprehensive breakdown of the project,
 
 ---
 
+## File Management and Data Storage
+
+### Overview
+
+In the course of this project, I emphasized not only the functional efficiency but also the organization and management of data. I employed JSON-based storage mechanisms for structured and easy retrieval of information. This section elaborates on how I store weather data and track connections from the Content Server (CS).
+
+### Weather Data Storage: `dataStore.json`
+
+The `dataStore.json` located in the `data` folder within `src` serves as our primary repository for weather data. It is structured to ensure quick access, updates, and searches:
+
+- **Key**: Each weather data entry is keyed by the `stationID`.
+- **Value**: The value corresponding to each key is a JSON object containing all pertinent information about the weather station.
+
+Example:
+```json
+{
+    "IDS60901": {
+        "stationName": "Sample Station",
+        "temperature": 22,
+        "humidity": 75,
+        "lastUpdated": "2023-10-11T14:48:00Z"
+    }
+}
+```
+This structure ensures that data retrieval based on a stationID is fast, making the system efficient even with large volumes of data.
+
+### Connection Tracking: `timestampStore.json`
+
+To ensure robustness and reliability, I also track the connections from the Content Server. The `timestampStore.json` in the data folder plays a crucial role in this.
+
+- **Key**: Each entry is keyed by the unique identifier for the Content Server.
+- **Value**: The value holds the timestamp of the last connection or data update received from that Content Server.
+
+Example:
+```json
+{
+    "CS_001": "2023-10-11T14:48:00Z",
+    "CS_002": "2023-10-11T13:45:30Z"
+}
+```
+
+This approach ensures that I can quickly determine the last time I received data from a particular Content Server, aiding in identifying connection issues or dormant servers.
+
+---
+
 ## Lamport Implementation
 
 The Lamport clock is a logical clock system that ensures a total ordering of events in a distributed system. In essence, it assists in defining the order of events as "happened before" in scenarios where physical time isn't a reliable metric. Our project employs the Lamport clock to synchronize events across different modules.
@@ -111,11 +156,11 @@ The meticulous use of the Lamport Clock ensures that the system maintains a cons
 
 ## Testing Methodologies
 
-Ensuring the robustness, reliability, and correctness of our project is of paramount importance. As such, we've implemented a rigorous testing regime spanning various methodologies to verify every nuance of the system. Overall, a total of 35 tests have been constructed to cover every conceivable scenario.
+Ensuring the robustness, reliability, and correctness of our project is of paramount importance. As such, I've implemented a rigorous testing regime spanning various methodologies to verify every nuance of the system. Overall, a total of 35 tests have been constructed to cover every conceivable scenario.
 
 ### 1. Unit Testing
 
-Unit testing focuses on testing individual components or units of the system in isolation. By isolating a specific segment of code and validating its correctness, we can ensure that every method and function works as intended.
+Unit testing focuses on testing individual components or units of the system in isolation. By isolating a specific segment of code and validating its correctness, I can ensure that every method and function works as intended.
 
 - **Example**: Testing the functionality of the `JsonHandler` in the `common` module to verify that it accurately serializes and deserializes data.
 
@@ -155,7 +200,7 @@ End-to-end tests validate the flow of an application from start to finish. They 
 - Passed: (This would be variable, ideally close to 35 if all tests pass)
 - Failed: (This would be variable based on the results of running the tests)
 
-By combining these diverse testing methodologies, we are not only ensuring that individual components are functioning as intended but also that they interact harmoniously, delivering a robust and reliable system.
+By combining these diverse testing methodologies, I are not only ensuring that individual components are functioning as intended but also that they interact harmoniously, delivering a robust and reliable system.
 
 ---
 
